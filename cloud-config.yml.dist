@@ -1,0 +1,14 @@
+#cloud-config
+coreos: 
+  etcd: 
+    discovery: "https://discovery.etcd.io/YOUR-TOKEN-HERE"
+    addr: "$public_ipv4:4001"
+    peer-addr: "$private_ipv4:7001"
+  units: 
+    - command: start
+      name: etcd.service
+    - command: start
+      name: fleet.service
+users: 
+  - name: core
+    coreos-ssh-import-github: polvi
