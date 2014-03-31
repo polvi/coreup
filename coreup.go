@@ -23,12 +23,6 @@ func getClient(project string, region string) (CoreClient, error) {
 	return nil, errors.New("Unable to find provider")
 }
 
-var usr *user.User
-
-func init() {
-	usr, _ = user.Current()
-}
-
 var (
 	cloudConfig = flag.String("cloud-config", "", "local file, usually ./cloud-config.yml")
 	channel     = flag.String("channel", "alpha", "CoreOS channel to use")
@@ -36,9 +30,15 @@ var (
 	region      = flag.String("region", "us-west-2", "region to launch instance in")
 	action      = flag.String("action", "run", "run, terminate, list")
 	size        = flag.String("size", "m1.medium", "size of instance")
-	project     = flag.String("project", "coreup-"+usr.Username, "name for the group of servers in the same project")
 	num         = flag.Int("num", 1, "number of instances to launch like this")
+
+	project string
 )
+
+func init() {
+	usr, _ := user.Current()
+	flag.StringVar(&project, "project", "coreup-"+usr.Username, "name for the group of servers in the same project")
+}
 
 func main() {
 	flag.Parse()
@@ -58,13 +58,13 @@ func main() {
 	}
 	switch *action {
 	case "run":
-		err = c.Run(*project, *channel, *region, *size, *num, cloud_config)
+		err = c.Run(project, *channel, *region, *size, *num, cloud_config)
 		if err != nil {
 			fmt.Println("error launching instances", err)
 			os.Exit(1)
 		}
 	case "terminate":
-		err = c.Terminate(*project)
+		err = c.Terminate(project)
 		if err != nil {
 			fmt.Println("error terminating instances", err)
 			os.Exit(1)
