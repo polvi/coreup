@@ -4,10 +4,11 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/polvi/coreup/drivers"
 	"io/ioutil"
 	"os"
 	"os/user"
+
+	"github.com/polvi/coreup/drivers"
 )
 
 type CoreClient interface {
