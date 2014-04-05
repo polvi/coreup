@@ -13,6 +13,7 @@ import (
 
 type CoreClient interface {
 	Run(project string, channel string, region string, size string, num int, cloud_config string) error
+	List(project string) error
 	Terminate(project string) error
 }
 
@@ -47,7 +48,7 @@ func main() {
 	if *cloudConfig != "" {
 		data, err := ioutil.ReadFile(*cloudConfig)
 		if err != nil {
-			println("unable to read cloud-config")
+			fmt.Println("unable to read cloud-config", err)
 		}
 		cloud_config = string(data)
 	}
@@ -65,6 +66,12 @@ func main() {
 		}
 	case "terminate":
 		err = c.Terminate(project)
+		if err != nil {
+			fmt.Println("error terminating instances", err)
+			os.Exit(1)
+		}
+	case "list":
+		err = c.List(project)
 		if err != nil {
 			fmt.Println("error terminating instances", err)
 			os.Exit(1)

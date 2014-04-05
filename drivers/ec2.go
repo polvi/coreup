@@ -17,7 +17,7 @@ func EC2GetClient(project string, region string) (EC2CoreClient, error) {
 	c := EC2CoreClient{}
 	auth, err := aws.EnvAuth()
 	if err != nil {
-		println("unable to get aws client")
+		fmt.Println("unable to get aws client")
 		return c, err
 	}
 	client := ec2.New(auth, aws.Regions[region])
@@ -117,6 +117,22 @@ func (c EC2CoreClient) Terminate(project string) error {
 	_, err = c.client.DeleteSecurityGroup(sg)
 	if err != nil {
 		// will fail if the machines are not terminated
+	}
+	return nil
+}
+func (c EC2CoreClient) List(project string) error {
+	filter := ec2.NewFilter()
+	filter.Add("tag:Name", project)
+	filter.Add("instance-state-name", "running")
+	resp, err := c.client.Instances(nil, filter)
+	if err != nil {
+		fmt.Println("could get instances", err)
+		return err
+	}
+	for _, res := range resp.Reservations {
+		for _, instance := range res.Instances {
+			fmt.Println(instance.DNSName)
+		}
 	}
 	return nil
 }
