@@ -17,9 +17,12 @@ type CoreClient interface {
 	Terminate(project string) error
 }
 
-func getClient(project string, region string) (CoreClient, error) {
-	if project == "ec2" {
+func getClient(provider string, region string) (CoreClient, error) {
+	switch provider {
+	case "ec2":
 		return drivers.EC2GetClient(project, region)
+	case "rackspace":
+		return drivers.RackspaceGetClient(project, "")
 	}
 	return nil, errors.New("Unable to find provider")
 }
