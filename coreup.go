@@ -76,7 +76,7 @@ func main() {
 	case "list":
 		err = c.List(project)
 		if err != nil {
-			fmt.Println("error terminating instances", err)
+			fmt.Println("error listing instances", err)
 			os.Exit(1)
 		}
 	}
