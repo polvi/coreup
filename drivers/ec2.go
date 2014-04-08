@@ -24,6 +24,7 @@ var oauthCfg = &oauth.Config{
 }
 
 const profileInfoURL = "https://www.googleapis.com/oauth2/v1/userinfo?alt=json"
+const assumeRoleARN = "arn:aws:iam::477645798544:role/RoleForGoogle"
 
 type GoogleEmail struct {
 	Id            string `json:"id"`
@@ -58,7 +59,7 @@ func handleOAuth2Callback(w http.ResponseWriter, r *http.Request) (aws.Auth, err
 	}
 
 	client := sts.New(aws.Regions["us-east-1"])
-	aws_resp, err := client.AssumeRoleWithWebIdentity(3600, "", "", "arn:aws:iam::477645798544:role/RoleForGoogle", goog.Email, token.Extra["id_token"])
+	aws_resp, err := client.AssumeRoleWithWebIdentity(3600, "", "", assumeRoleARN, goog.Email, token.Extra["id_token"])
 	if err != nil {
 		return auth, err
 	}
@@ -80,10 +81,10 @@ func authFromOAuth() (aws.Auth, error) {
 	}
 
 	l, err := net.Listen("tcp", "localhost:8016")
+	defer l.Close()
 	if err != nil {
 		return aws.Auth{}, err
 	}
-	defer l.Close()
 	url := oauthCfg.AuthCodeURL("")
 	open.Run(url)
 	ch := make(chan *authres, 1)
