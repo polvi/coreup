@@ -22,7 +22,7 @@ func getClient(provider string, region string) (CoreClient, error) {
 	case "ec2":
 		return drivers.EC2GetClient(project, region)
 	case "rackspace":
-		return drivers.RackspaceGetClient(project, "")
+		return drivers.RackspaceGetClient(project, "", cache_path)
 	}
 	return nil, errors.New("Unable to find provider")
 }
@@ -36,12 +36,14 @@ var (
 	size        = flag.String("size", "m1.medium", "size of instance")
 	num         = flag.Int("num", 1, "number of instances to launch like this")
 
-	project string
+	project    string
+	cache_path string
 )
 
 func init() {
 	usr, _ := user.Current()
 	flag.StringVar(&project, "project", "coreup-"+usr.Username, "name for the group of servers in the same project")
+	flag.StringVar(&cache_path, "cred-cache", usr.HomeDir+"/.coreup/cred-cache.json", "location to store credential tokens")
 }
 
 func main() {

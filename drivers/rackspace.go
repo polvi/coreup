@@ -4,32 +4,62 @@ import (
 	"encoding/base64"
 	"fmt"
 	"github.com/rackspace/gophercloud"
-	"os"
 )
 
 type RackspaceCoreClient struct {
 	client gophercloud.CloudServersProvider
+	cache  *CredCache
 }
 
-func RackspaceGetClient(project string, region string) (RackspaceCoreClient, error) {
+func RackspaceGetClient(project string, region string, cache_path string) (RackspaceCoreClient, error) {
 	c := RackspaceCoreClient{}
+	cache, err := LoadCredCache(cache_path)
+	if err != nil {
+		fmt.Println("unable to get cache")
+		return c, err
+	}
+	c.cache = cache
+	if c.cache.RackspaceUser == "" || c.cache.RackspaceAPIKey == "" {
+		var rack_user string
+		var rack_pass string
+		fmt.Printf("rackspace user: ")
+		_, err = fmt.Scanf("%s", &rack_user)
+		if err != nil {
+			return c, err
+		}
+		fmt.Printf("rackspace api key: ")
+		_, err = fmt.Scanf("%s", &rack_pass)
+		if err != nil {
+			return c, err
+		}
+		c.cache.RackspaceUser = rack_user
+		c.cache.RackspaceAPIKey = rack_pass
+		c.cache.Save()
+		if err != nil {
+			return c, err
+		}
+	}
 	ao := gophercloud.AuthOptions{
-		Username:    os.ExpandEnv("$RACKSPACE_USER"),
-		ApiKey:      os.ExpandEnv("$RACKSPACE_API_KEY"),
+		Username:    c.cache.RackspaceUser,
+		ApiKey:      c.cache.RackspaceAPIKey,
 		AllowReauth: true,
 	}
 	access, err := gophercloud.Authenticate("rackspace-us", ao)
 	if err != nil {
-		fmt.Println("unable to auth rackspace", err)
+		c.cache.RackspaceUser = ""
+		c.cache.RackspaceAPIKey = ""
+		c.cache.Save()
 		return c, err
 	}
 	ac, err := gophercloud.PopulateApi("rackspace")
-	client, err := gophercloud.ServersApi(access, ac)
-	c.client = client
 	if err != nil {
-		fmt.Println("unable to get rackspace client", err)
 		return c, err
 	}
+	client, err := gophercloud.ServersApi(access, ac)
+	if err != nil {
+		return c, err
+	}
+	c.client = client
 	return c, nil
 
 }
