@@ -1,0 +1,4 @@
+#cloud-config
+users: 
+  - name: core
+    coreos-ssh-import-github: polvi
