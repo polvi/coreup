@@ -15,8 +15,6 @@ import (
 )
 
 var oauthCfg = &oauth.Config{
-	//	ClientId:     "936840006820-uqofo95h28vg5iqnb1hm94lonbbve354.apps.googleusercontent.com",
-	//	ClientSecret: "u-FtkDddDRTNzu4gO_iSJ-hd",
 	AuthURL:     "https://accounts.google.com/o/oauth2/auth",
 	TokenURL:    "https://accounts.google.com/o/oauth2/token",
 	RedirectURL: "http://localhost:8016/oauth2callback",
@@ -110,33 +108,35 @@ func EC2GetClient(project string, region string, cache_path string) (EC2CoreClie
 		return c, err
 	}
 	c.cache = cache
-	if cache.GoogSSOClientID == "" || cache.GoogSSOClientSecret == "" {
-		var client_id string
-		var client_secret string
-		fmt.Printf("google client id: ")
-		_, err = fmt.Scanf("%s", &client_id)
-		if err != nil {
-			return c, err
+	if c.cache.AWSAccessKey == "" || c.cache.AWSSecretKey == "" {
+		if cache.GoogSSOClientID == "" || cache.GoogSSOClientSecret == "" {
+			var client_id string
+			var client_secret string
+			fmt.Printf("google client id: ")
+			_, err = fmt.Scanf("%s", &client_id)
+			if err != nil {
+				return c, err
+			}
+			c.cache.GoogSSOClientID = strings.TrimSpace(client_id)
+			fmt.Printf("google client secret: ")
+			_, err = fmt.Scanf("%s", &client_secret)
+			if err != nil {
+				return c, err
+			}
+			c.cache.GoogSSOClientSecret = strings.TrimSpace(client_secret)
+			if err != nil {
+				return c, err
+			}
+			if cache.AWSRoleARN == "" {
+				var arn string
+				fmt.Printf("amazon role arn: ")
+				_, err = fmt.Scanf("%s", &arn)
+				if err != nil {
+					return c, err
+				}
+				c.cache.AWSRoleARN = strings.TrimSpace(arn)
+			}
 		}
-		fmt.Printf("google client secret: ")
-		_, err = fmt.Scanf("%s", &client_secret)
-		if err != nil {
-			return c, err
-		}
-		c.cache.GoogSSOClientID = client_id
-		c.cache.GoogSSOClientSecret = client_secret
-		if err != nil {
-			return c, err
-		}
-	}
-	if cache.AWSRoleARN == "" {
-		var arn string
-		fmt.Printf("amazon role arn: ")
-		_, err = fmt.Scanf("%s", &arn)
-		if err != nil {
-			return c, err
-		}
-		c.cache.AWSRoleARN = arn
 	}
 	oauthCfg.ClientId = c.cache.GoogSSOClientID
 	oauthCfg.ClientSecret = c.cache.GoogSSOClientSecret

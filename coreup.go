@@ -28,7 +28,7 @@ func getClient(provider string, region string) (CoreClient, error) {
 }
 
 var (
-	cloudConfig = flag.String("cloud-config", "", "local file, usually ./cloud-config.yml")
+	cloudConfig = flag.String("cloud-config", "./cloud-config.yml", "local file, usually ./cloud-config.yml")
 	channel     = flag.String("channel", "alpha", "CoreOS channel to use")
 	provider    = flag.String("provider", "ec2", "cloud or provider to launch instance in")
 	region      = flag.String("region", "us-west-2", "region to launch instance in")
@@ -50,10 +50,11 @@ func main() {
 	flag.Parse()
 
 	var cloud_config string
-	if *cloudConfig != "" {
+	if *cloudConfig != "" && *action == "run" {
 		data, err := ioutil.ReadFile(*cloudConfig)
 		if err != nil {
-			fmt.Println("unable to read cloud-config", err)
+			fmt.Println("unable to", err)
+			os.Exit(1)
 		}
 		cloud_config = string(data)
 	}
