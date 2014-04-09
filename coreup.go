@@ -20,7 +20,7 @@ type CoreClient interface {
 func getClient(provider string, region string) (CoreClient, error) {
 	switch provider {
 	case "ec2":
-		return drivers.EC2GetClient(project, region)
+		return drivers.EC2GetClient(project, region, cache_path)
 	case "rackspace":
 		return drivers.RackspaceGetClient(project, "", cache_path)
 	}

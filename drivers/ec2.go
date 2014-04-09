@@ -15,16 +15,17 @@ import (
 )
 
 var oauthCfg = &oauth.Config{
-	ClientId:     "936840006820-uqofo95h28vg5iqnb1hm94lonbbve354.apps.googleusercontent.com",
-	ClientSecret: "u-FtkDddDRTNzu4gO_iSJ-hd",
-	AuthURL:      "https://accounts.google.com/o/oauth2/auth",
-	TokenURL:     "https://accounts.google.com/o/oauth2/token",
-	RedirectURL:  "http://localhost:8016/oauth2callback",
-	Scope:        "https://www.googleapis.com/auth/userinfo.email",
+	//	ClientId:     "936840006820-uqofo95h28vg5iqnb1hm94lonbbve354.apps.googleusercontent.com",
+	//	ClientSecret: "u-FtkDddDRTNzu4gO_iSJ-hd",
+	AuthURL:     "https://accounts.google.com/o/oauth2/auth",
+	TokenURL:    "https://accounts.google.com/o/oauth2/token",
+	RedirectURL: "http://localhost:8016/oauth2callback",
+	Scope:       "https://www.googleapis.com/auth/userinfo.email",
 }
 
 const profileInfoURL = "https://www.googleapis.com/oauth2/v1/userinfo?alt=json"
-const assumeRoleARN = "arn:aws:iam::477645798544:role/RoleForGoogle"
+
+var assumeRoleARN string
 
 type GoogleEmail struct {
 	Id            string `json:"id"`
@@ -99,20 +100,68 @@ func authFromOAuth() (aws.Auth, error) {
 
 type EC2CoreClient struct {
 	client *ec2.EC2
+	cache  *CredCache
 }
 
-func EC2GetClient(project string, region string) (EC2CoreClient, error) {
+func EC2GetClient(project string, region string, cache_path string) (EC2CoreClient, error) {
 	c := EC2CoreClient{}
-	auth, err := authFromOAuth()
+	cache, err := LoadCredCache(cache_path)
 	if err != nil {
-		fmt.Println("unable to get aws client")
 		return c, err
 	}
-	client := ec2.New(auth, aws.Regions[region])
-	c.client = client
+	c.cache = cache
+	if cache.GoogSSOClientID == "" || cache.GoogSSOClientSecret == "" {
+		var client_id string
+		var client_secret string
+		fmt.Printf("google client id: ")
+		_, err = fmt.Scanf("%s", &client_id)
+		if err != nil {
+			return c, err
+		}
+		fmt.Printf("google client secret: ")
+		_, err = fmt.Scanf("%s", &client_secret)
+		if err != nil {
+			return c, err
+		}
+		c.cache.GoogSSOClientID = client_id
+		c.cache.GoogSSOClientSecret = client_secret
+		if err != nil {
+			return c, err
+		}
+	}
+	if cache.AWSRoleARN == "" {
+		var arn string
+		fmt.Printf("amazon role arn: ")
+		_, err = fmt.Scanf("%s", &arn)
+		if err != nil {
+			return c, err
+		}
+		c.cache.AWSRoleARN = arn
+	}
+	oauthCfg.ClientId = c.cache.GoogSSOClientID
+	oauthCfg.ClientSecret = c.cache.GoogSSOClientSecret
+	assumeRoleARN = c.cache.AWSRoleARN
+	if c.cache.AWSAccessKey == "" || c.cache.AWSSecretKey == "" {
+		auth, err := authFromOAuth()
+		if err != nil {
+			fmt.Println("unable to get aws client")
+			return c, err
+		}
+		c.cache.AWSAccessKey = auth.AccessKey
+		c.cache.AWSSecretKey = auth.SecretKey
+		c.cache.AWSToken = auth.Token
+		c.cache.Save()
+	}
+	auth := aws.Auth{
+		AccessKey: c.cache.AWSAccessKey,
+		SecretKey: c.cache.AWSSecretKey,
+		Token:     c.cache.AWSToken,
+	}
+	c.client = ec2.New(auth, aws.Regions[region])
 	return c, nil
 
 }
+
 func getEc2AmiUrl(channel string) string {
 	return fmt.Sprintf("http://storage.core-os.net/coreos/amd64-usr/%s/coreos_production_ami_all.txt", channel)
 }

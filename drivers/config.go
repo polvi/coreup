@@ -9,9 +9,15 @@ import (
 )
 
 type CredCache struct {
-	path            string
-	RackspaceUser   string
-	RackspaceAPIKey string
+	path                string
+	RackspaceUser       string
+	RackspaceAPIKey     string
+	GoogSSOClientID     string
+	GoogSSOClientSecret string
+	AWSRoleARN          string
+	AWSAccessKey        string
+	AWSSecretKey        string
+	AWSToken            string
 }
 
 func LoadCredCache(config string) (*CredCache, error) {
