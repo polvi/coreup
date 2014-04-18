@@ -137,6 +137,21 @@ func EC2GetClient(project string, region string, cache_path string) (EC2CoreClie
 				c.cache.AWSRoleARN = strings.TrimSpace(arn)
 			}
 		}
+	} else {
+		// this tests if the existing creds are valid
+		auth := aws.Auth{
+			AccessKey: c.cache.AWSAccessKey,
+			SecretKey: c.cache.AWSSecretKey,
+			Token:     c.cache.AWSToken,
+		}
+		c.client = ec2.New(auth, aws.Regions[region])
+		_, err := c.serversByProject(project)
+		if err != nil {
+			c.cache.AWSAccessKey = ""
+			c.cache.AWSSecretKey = ""
+			c.cache.AWSToken = ""
+			c.cache.Save()
+		}
 	}
 	oauthCfg.ClientId = c.cache.GoogSSOClientID
 	oauthCfg.ClientSecret = c.cache.GoogSSOClientSecret
