@@ -12,7 +12,7 @@ import (
 )
 
 type CoreClient interface {
-	Run(project string, channel string, region string, size string, num int, cloud_config string) error
+	Run(project string, channel string, region string, size string, num int, block bool, cloud_config string) error
 	List(project string) error
 	Terminate(project string) error
 }
@@ -35,6 +35,7 @@ var (
 	action      = flag.String("action", "run", "run, terminate, list")
 	size        = flag.String("size", "m1.medium", "size of instance")
 	num         = flag.Int("num", 1, "number of instances to launch like this")
+	block       = flag.Bool("block-until-ready", true, "tell run commands to wait until machines are up to return")
 
 	project    string
 	cache_path string
@@ -65,7 +66,7 @@ func main() {
 	}
 	switch *action {
 	case "run":
-		err = c.Run(project, *channel, *region, *size, *num, cloud_config)
+		err = c.Run(project, *channel, *region, *size, *num, *block, cloud_config)
 		if err != nil {
 			fmt.Println("error launching instances", err)
 			os.Exit(1)

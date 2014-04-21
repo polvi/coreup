@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 )
 
 var oauthCfg = &oauth.Config{
@@ -214,7 +215,7 @@ func ec2GetSecurityGroup(client *ec2.EC2, project string) ec2.SecurityGroup {
 	}
 	return sg
 }
-func (c EC2CoreClient) Run(project string, channel string, region string, size string, num int, cloud_config string) error {
+func (c EC2CoreClient) Run(project string, channel string, region string, size string, num int, block bool, cloud_config string) error {
 	amis, _ := ec2GetAmis(getEc2AmiUrl(channel))
 	sg := ec2GetSecurityGroup(c.client, project)
 	options := ec2.RunInstances{
@@ -245,7 +246,51 @@ func (c EC2CoreClient) Run(project string, channel string, region string, size s
 		fmt.Println("could not tag group", err)
 		return err
 	}
+	if block {
+		total_instances := len(resp.Instances)
+		var running []ec2.Instance
+		for {
+			running, err = c.serversByProject(project)
+			if err != nil {
+				return err
+			}
+			if len(running) == total_instances {
+				break
+			}
+			time.Sleep(1 * time.Second)
+		}
+		running_ips := []string{}
+		for _, inst := range running {
+			running_ips = append(running_ips, inst.DNSName)
+		}
+		blockUntilSSH(running_ips)
+	}
 	return nil
+}
+func blockUntilSSH(servers []string) {
+	readyc := make(chan string)
+	for _, ip := range servers {
+		go func(ip string) {
+			for {
+				_, err := net.DialTimeout("tcp", ip+":22", 400*time.Millisecond)
+				if err == nil {
+					fmt.Println(ip)
+					readyc <- ip
+					return
+				}
+			}
+
+		}(ip)
+	}
+	ready := 0
+	for {
+		<-readyc
+		ready++
+		if ready == len(servers) {
+			return
+		}
+	}
+
 }
 func (c EC2CoreClient) serversByProject(project string) ([]ec2.Instance, error) {
 	filter := ec2.NewFilter()

@@ -64,7 +64,7 @@ func RackspaceGetClient(project string, region string, cache_path string) (Racks
 
 }
 
-func (c RackspaceCoreClient) Run(project string, channel string, region string, size string, num int, cloud_config string) error {
+func (c RackspaceCoreClient) Run(project string, channel string, region string, size string, num int, block bool, cloud_config string) error {
 	b := []byte(cloud_config)
 	cc_b64 := base64.StdEncoding.EncodeToString(b)
 	metadata := map[string]string{"coreup": project}
