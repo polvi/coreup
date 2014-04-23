@@ -215,11 +215,15 @@ func ec2GetSecurityGroup(client *ec2.EC2, project string) ec2.SecurityGroup {
 	}
 	return sg
 }
-func (c EC2CoreClient) Run(project string, channel string, region string, size string, num int, block bool, cloud_config string) error {
-	amis, _ := ec2GetAmis(getEc2AmiUrl(channel))
+func (c EC2CoreClient) Run(project string, channel string, region string, size string, num int, block bool, cloud_config string, image string) error {
+	ami := image
+	if image != "" {
+		amis, _ := ec2GetAmis(getEc2AmiUrl(channel))
+		ami = amis[region]
+	}
 	sg := ec2GetSecurityGroup(c.client, project)
 	options := ec2.RunInstances{
-		ImageId:        amis[region],
+		ImageId:        ami,
 		MinCount:       num,
 		MaxCount:       num,
 		UserData:       []byte(cloud_config),
