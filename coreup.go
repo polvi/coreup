@@ -12,7 +12,7 @@ import (
 )
 
 type CoreClient interface {
-	Run(project string, channel string, region string, size string, num int, block bool, cloud_config string) error
+	Run(project string, channel string, region string, size string, num int, block bool, cloud_config string, image string) error
 	List(project string) error
 	Terminate(project string) error
 }
@@ -39,12 +39,14 @@ var (
 
 	project    string
 	cache_path string
+	image      string
 )
 
 func init() {
 	usr, _ := user.Current()
 	flag.StringVar(&project, "project", "coreup-"+usr.Username, "name for the group of servers in the same project")
 	flag.StringVar(&cache_path, "cred-cache", usr.HomeDir+"/.coreup/cred-cache.json", "location to store credential tokens")
+	flag.StringVar(&image, "image", "", "image name (default to fetching from core-os.net)")
 }
 
 func main() {
@@ -66,7 +68,7 @@ func main() {
 	}
 	switch *action {
 	case "run":
-		err = c.Run(project, *channel, *region, *size, *num, *block, cloud_config)
+		err = c.Run(project, *channel, *region, *size, *num, *block, cloud_config, image)
 		if err != nil {
 			fmt.Println("error launching instances", err)
 			os.Exit(1)

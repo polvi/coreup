@@ -11,6 +11,10 @@ type RackspaceCoreClient struct {
 	cache  *CredCache
 }
 
+const (
+	defaultImage = "6bdbd558-e66c-49cc-9ff3-126e7411f602"
+)
+
 func RackspaceGetClient(project string, region string, cache_path string) (RackspaceCoreClient, error) {
 	c := RackspaceCoreClient{}
 	cache, err := LoadCredCache(cache_path)
@@ -64,14 +68,17 @@ func RackspaceGetClient(project string, region string, cache_path string) (Racks
 
 }
 
-func (c RackspaceCoreClient) Run(project string, channel string, region string, size string, num int, block bool, cloud_config string) error {
+func (c RackspaceCoreClient) Run(project string, channel string, region string, size string, num int, block bool, cloud_config string, image string) error {
 	b := []byte(cloud_config)
 	cc_b64 := base64.StdEncoding.EncodeToString(b)
 	metadata := map[string]string{"coreup": project}
+	if image == "" {
+		image = defaultImage
+	}
 	ns := gophercloud.NewServer{
 		Name:        project,
 		Metadata:    metadata,
-		ImageRef:    "6bdbd558-e66c-49cc-9ff3-126e7411f602",
+		ImageRef:    image,
 		FlavorRef:   size,
 		ConfigDrive: true,
 		UserData:    cc_b64,
