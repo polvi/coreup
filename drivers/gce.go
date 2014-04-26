@@ -114,48 +114,52 @@ func (c GCECoreClient) waitForOp(op *compute.Operation, zone string) error {
 
 func (c GCECoreClient) Run(project string, channel string, region string, size string, num int, block bool, cloud_config string, image string) error {
 	prefix := "https://www.googleapis.com/compute/v1/projects/" + "coreos-coreup"
-	instance := &compute.Instance{
-		Name:        "test2",
-		Description: project,
-		MachineType: prefix + "/zones/us-central1-a/machineTypes/n1-standard-1",
-		Disks: []*compute.AttachedDisk{
-			{
-				AutoDelete: true,
-				Boot:       true,
-				Type:       "PERSISTENT",
-				Mode:       "READ_WRITE",
-				InitializeParams: &compute.AttachedDiskInitializeParams{
-					SourceImage: "https://www.googleapis.com/compute/v1/projects/coreos-coreup/global/images/coreos-v298-0-0",
-				},
-			},
-		},
-		NetworkInterfaces: []*compute.NetworkInterface{
-			{
-				AccessConfigs: []*compute.AccessConfig{
-					&compute.AccessConfig{Type: "ONE_TO_ONE_NAT"},
-				},
-				Network: prefix + "/global/networks/default",
-			},
-		},
-		Metadata: &compute.Metadata{
-			Items: []*compute.MetadataItems{
+	time := time.Now().Unix()
+	for i := 0; i < num; i++ {
+		name := fmt.Sprintf("%s-%d-%d", project, time, i)
+		instance := &compute.Instance{
+			Name:        name,
+			Description: project,
+			MachineType: prefix + "/zones/us-central1-a/machineTypes/n1-standard-1",
+			Disks: []*compute.AttachedDisk{
 				{
-					Key:   "coreos-coreup",
-					Value: project,
+					AutoDelete: true,
+					Boot:       true,
+					Type:       "PERSISTENT",
+					Mode:       "READ_WRITE",
+					InitializeParams: &compute.AttachedDiskInitializeParams{
+						SourceImage: "https://www.googleapis.com/compute/v1/projects/coreos-coreup/global/images/coreos-v298-0-0",
+					},
 				},
 			},
-		},
-	}
-	log.Printf("starting instance: %q", project)
-	op, err := c.service.Instances.Insert(project_id, zone, instance).Do()
-	if err != nil {
-		log.Printf("instance insert api call failed: %v", err)
-		return err
-	}
-	err = c.waitForOp(op, zone)
-	if err != nil {
-		log.Printf("instance insert operation failed: %v", err)
-		return err
+			NetworkInterfaces: []*compute.NetworkInterface{
+				{
+					AccessConfigs: []*compute.AccessConfig{
+						&compute.AccessConfig{Type: "ONE_TO_ONE_NAT"},
+					},
+					Network: prefix + "/global/networks/default",
+				},
+			},
+			Metadata: &compute.Metadata{
+				Items: []*compute.MetadataItems{
+					{
+						Key:   "coreos-coreup",
+						Value: project,
+					},
+				},
+			},
+			Tags: &compute.Tags{
+				Items: []string{
+					project,
+				},
+			},
+		}
+		log.Printf("starting instance: %q", project)
+		_, err := c.service.Instances.Insert(project_id, zone, instance).Do()
+		if err != nil {
+			log.Printf("instance insert api call failed: %v", err)
+			return err
+		}
 	}
 	return nil
 }
