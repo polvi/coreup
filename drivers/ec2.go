@@ -217,7 +217,7 @@ func ec2GetSecurityGroup(client *ec2.EC2, project string) ec2.SecurityGroup {
 }
 func (c EC2CoreClient) Run(project string, channel string, region string, size string, num int, block bool, cloud_config string, image string) error {
 	ami := image
-	if image != "" {
+	if image == "" {
 		amis, _ := ec2GetAmis(getEc2AmiUrl(channel))
 		ami = amis[region]
 	}
