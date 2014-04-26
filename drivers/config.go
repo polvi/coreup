@@ -18,6 +18,7 @@ type CredCache struct {
 	AWSAccessKey        string
 	AWSSecretKey        string
 	AWSToken            string
+	RefreshToken        string
 }
 
 func LoadCredCache(config string) (*CredCache, error) {

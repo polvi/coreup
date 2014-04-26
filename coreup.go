@@ -23,6 +23,8 @@ func getClient(provider string, region string) (CoreClient, error) {
 		return drivers.EC2GetClient(project, region, cache_path)
 	case "rackspace":
 		return drivers.RackspaceGetClient(project, "", cache_path)
+	case "google":
+		return drivers.GCEGetClient(project, "", cache_path)
 	}
 	return nil, errors.New("Unable to find provider")
 }

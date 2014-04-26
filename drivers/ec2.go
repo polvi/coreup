@@ -1,18 +1,20 @@
 package drivers
 
 import (
-	"code.google.com/p/goauth2/oauth"
 	"encoding/json"
 	"fmt"
-	"github.com/polvi/goamz/aws"
-	"github.com/polvi/goamz/ec2"
-	"github.com/polvi/goamz/sts"
-	"github.com/skratchdot/open-golang/open"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
+
+	"code.google.com/p/goauth2/oauth"
+	"github.com/polvi/goamz/aws"
+	"github.com/polvi/goamz/ec2"
+	"github.com/polvi/goamz/sts"
+	"github.com/skratchdot/open-golang/open"
 )
 
 var oauthCfg = &oauth.Config{
@@ -181,6 +183,7 @@ func EC2GetClient(project string, region string, cache_path string) (EC2CoreClie
 func getEc2AmiUrl(channel string) string {
 	return fmt.Sprintf("http://storage.core-os.net/coreos/amd64-usr/%s/coreos_production_ami_all.txt", channel)
 }
+
 func ec2GetAmis(url string) (map[string]string, error) {
 	resp, err := http.Get(url)
 	defer resp.Body.Close()
@@ -199,6 +202,7 @@ func ec2GetAmis(url string) (map[string]string, error) {
 	}
 	return ret, err
 }
+
 func ec2GetSecurityGroup(client *ec2.EC2, project string) ec2.SecurityGroup {
 	sg := ec2.SecurityGroup{
 		Name:        project,
@@ -215,6 +219,7 @@ func ec2GetSecurityGroup(client *ec2.EC2, project string) ec2.SecurityGroup {
 	}
 	return sg
 }
+
 func (c EC2CoreClient) Run(project string, channel string, region string, size string, num int, block bool, cloud_config string, image string) error {
 	ami := image
 	if image == "" {
@@ -271,31 +276,26 @@ func (c EC2CoreClient) Run(project string, channel string, region string, size s
 	}
 	return nil
 }
+
 func blockUntilSSH(servers []string) {
-	readyc := make(chan string)
+	var wg sync.WaitGroup
+	wg.Add(len(servers))
 	for _, ip := range servers {
 		go func(ip string) {
 			for {
 				_, err := net.DialTimeout("tcp", ip+":22", 400*time.Millisecond)
 				if err == nil {
 					fmt.Println(ip)
-					readyc <- ip
+					wg.Done()
 					return
 				}
 			}
 
 		}(ip)
 	}
-	ready := 0
-	for {
-		<-readyc
-		ready++
-		if ready == len(servers) {
-			return
-		}
-	}
-
+	wg.Wait()
 }
+
 func (c EC2CoreClient) serversByProject(project string) ([]ec2.Instance, error) {
 	filter := ec2.NewFilter()
 	filter.Add("tag:coreup-project", project)
@@ -338,6 +338,7 @@ func (c EC2CoreClient) Terminate(project string) error {
 	}
 	return nil
 }
+
 func (c EC2CoreClient) List(project string) error {
 	instances, err := c.serversByProject(project)
 	if err != nil {
