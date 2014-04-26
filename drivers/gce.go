@@ -57,13 +57,21 @@ func GCEGetClient(project string, region string, cache_path string) (*GCECoreCli
 		AuthURL:      "https://accounts.google.com/o/oauth2/auth",
 		TokenURL:     "https://accounts.google.com/o/oauth2/token",
 	}
-	token, err := authRefreshToken(cfg)
-	if err != nil {
-		return nil, err
+	if cache.GoogAccessToken == "" {
+		token, err := authRefreshToken(cfg)
+		if err != nil {
+			return nil, err
+		}
+		cache.GoogAccessToken = token.AccessToken
+		cache.Save()
+
 	}
+	token := cache.GoogAccessToken
 	transport := &oauth.Transport{
-		Config:    cfg,
-		Token:     token,
+		Config: cfg,
+		Token: &oauth.Token{
+			AccessToken: token,
+		},
 		Transport: http.DefaultTransport,
 	}
 	svc, err := compute.New(transport.Client())
