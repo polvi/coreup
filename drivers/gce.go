@@ -3,16 +3,21 @@ package drivers
 import (
 	"errors"
 	"fmt"
+	"github.com/skratchdot/open-golang/open"
+	"log"
 	"net"
 	"net/http"
 	"strings"
-	"github.com/skratchdot/open-golang/open"
+	"time"
 
 	"code.google.com/p/goauth2/oauth"
 	compute "code.google.com/p/google-api-go-client/compute/v1"
 )
 
 var ErrNotImplemeted = errors.New("not implemented")
+
+var project_id = "coreos-coreup"
+var zone = "us-central1-a"
 
 type GCECoreClient struct {
 	service *compute.Service
@@ -91,8 +96,68 @@ func authRefreshToken(c *oauth.Config) (*oauth.Token, error) {
 	return token, err
 }
 
+func (c GCECoreClient) waitForOp(op *compute.Operation, zone string) error {
+	op, err := c.service.ZoneOperations.Get(project_id, zone, op.Name).Do()
+	for op.Status != "DONE" {
+		time.Sleep(5 * time.Second)
+		op, err = c.service.ZoneOperations.Get(project_id, zone, op.Name).Do()
+		if err != nil {
+			log.Printf("Got compute.Operation, err: %#v, %v", op, err)
+		}
+		if op.Status != "PENDING" && op.Status != "RUNNING" && op.Status != "DONE" {
+			log.Printf("Error waiting for operation: %s\n", op)
+			return errors.New(fmt.Sprintf("Bad operation: %s", op))
+		}
+	}
+	return err
+}
+
 func (c GCECoreClient) Run(project string, channel string, region string, size string, num int, block bool, cloud_config string, image string) error {
-	return ErrNotImplemeted
+	prefix := "https://www.googleapis.com/compute/v1/projects/" + "coreos-coreup"
+	instance := &compute.Instance{
+		Name:        "test2",
+		Description: project,
+		MachineType: prefix + "/zones/us-central1-a/machineTypes/n1-standard-1",
+		Disks: []*compute.AttachedDisk{
+			{
+				AutoDelete: true,
+				Boot:       true,
+				Type:       "PERSISTENT",
+				Mode:       "READ_WRITE",
+				InitializeParams: &compute.AttachedDiskInitializeParams{
+					SourceImage: "https://www.googleapis.com/compute/v1/projects/coreos-coreup/global/images/coreos-v298-0-0",
+				},
+			},
+		},
+		NetworkInterfaces: []*compute.NetworkInterface{
+			{
+				AccessConfigs: []*compute.AccessConfig{
+					&compute.AccessConfig{Type: "ONE_TO_ONE_NAT"},
+				},
+				Network: prefix + "/global/networks/default",
+			},
+		},
+		Metadata: &compute.Metadata{
+			Items: []*compute.MetadataItems{
+				{
+					Key:   "coreos-coreup",
+					Value: project,
+				},
+			},
+		},
+	}
+	log.Printf("starting instance: %q", project)
+	op, err := c.service.Instances.Insert(project_id, zone, instance).Do()
+	if err != nil {
+		log.Printf("instance insert api call failed: %v", err)
+		return err
+	}
+	err = c.waitForOp(op, zone)
+	if err != nil {
+		log.Printf("instance insert operation failed: %v", err)
+		return err
+	}
+	return nil
 }
 
 func (c GCECoreClient) Terminate(project string) error {
@@ -100,7 +165,7 @@ func (c GCECoreClient) Terminate(project string) error {
 }
 
 func (c GCECoreClient) List(project string) error {
-	instances, err := c.service.Instances.List("coreos-coreup", "us-central1-a").Do()
+	instances, err := c.service.Instances.List(project_id, zone).Do()
 	if err != nil {
 		return err
 	}
