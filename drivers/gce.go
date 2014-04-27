@@ -151,8 +151,8 @@ func (c GCECoreClient) Run(project string, channel string, region string, size s
 			Metadata: &compute.Metadata{
 				Items: []*compute.MetadataItems{
 					{
-						Key:   "coreos-coreup",
-						Value: project,
+						Key:   "user-data",
+						Value: cloud_config,
 					},
 				},
 			},
@@ -177,7 +177,9 @@ func (c GCECoreClient) Terminate(project string) error {
 }
 
 func (c GCECoreClient) List(project string) error {
-	instances, err := c.service.Instances.List(project_id, zone).Do()
+	// TODO would be more ideal to filter on tags, but I could not find that
+	filter := fmt.Sprintf("name eq %s.*", project)
+	instances, err := c.service.Instances.List(project_id, zone).Filter(filter).Do()
 	if err != nil {
 		return err
 	}
