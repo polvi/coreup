@@ -19,6 +19,7 @@ type CredCache struct {
 	AWSSecretKey        string
 	AWSToken            string
 	GoogAccessToken     string
+	GoogProject         string
 }
 
 func LoadCredCache(config string) (*CredCache, error) {

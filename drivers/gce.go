@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/skratchdot/open-golang/open"
-	"log"
 	"net"
 	"net/http"
 	"strings"
@@ -16,18 +15,27 @@ import (
 
 var ErrNotImplemeted = errors.New("not implemented")
 
-var project_id = "coreos-coreup"
-var zone = "us-central1-a"
-
 type GCECoreClient struct {
-	service *compute.Service
-	cache   *CredCache
+	service    *compute.Service
+	cache      *CredCache
+	region     string
+	project_id string
 }
 
 func GCEGetClient(project string, region string, cache_path string) (*GCECoreClient, error) {
 	cache, err := LoadCredCache(cache_path)
 	if err != nil {
 		return nil, err
+	}
+	if cache.GoogProject == "" {
+		var project string
+		fmt.Printf("google project id: ")
+		_, err = fmt.Scanf("%s", &project)
+		if err != nil {
+			return nil, err
+		}
+		cache.GoogProject = strings.TrimSpace(project)
+		cache.Save()
 	}
 	if cache.GoogSSOClientID == "" || cache.GoogSSOClientSecret == "" {
 		var client_id string
@@ -79,8 +87,10 @@ func GCEGetClient(project string, region string, cache_path string) (*GCECoreCli
 		return nil, err
 	}
 	return &GCECoreClient{
-		service: svc,
-		cache:   cache,
+		service:    svc,
+		cache:      cache,
+		region:     region,
+		project_id: cache.GoogProject,
 	}, nil
 }
 
@@ -105,15 +115,14 @@ func authRefreshToken(c *oauth.Config) (*oauth.Token, error) {
 }
 
 func (c GCECoreClient) waitForOp(op *compute.Operation, zone string) error {
-	op, err := c.service.ZoneOperations.Get(project_id, zone, op.Name).Do()
+	op, err := c.service.ZoneOperations.Get(c.project_id, zone, op.Name).Do()
 	for op.Status != "DONE" {
 		time.Sleep(5 * time.Second)
-		op, err = c.service.ZoneOperations.Get(project_id, zone, op.Name).Do()
+		op, err = c.service.ZoneOperations.Get(c.project_id, c.region, op.Name).Do()
 		if err != nil {
-			log.Printf("Got compute.Operation, err: %#v, %v", op, err)
+			return err
 		}
 		if op.Status != "PENDING" && op.Status != "RUNNING" && op.Status != "DONE" {
-			log.Printf("Error waiting for operation: %s\n", op)
 			return errors.New(fmt.Sprintf("Bad operation: %s", op))
 		}
 	}
@@ -121,7 +130,7 @@ func (c GCECoreClient) waitForOp(op *compute.Operation, zone string) error {
 }
 
 func (c GCECoreClient) Run(project string, channel string, region string, size string, num int, block bool, cloud_config string, image string) error {
-	prefix := "https://www.googleapis.com/compute/v1/projects/" + "coreos-coreup"
+	prefix := "https://www.googleapis.com/compute/v1/projects/" + c.project_id
 	time := time.Now().Unix()
 	for i := 0; i < num; i++ {
 		name := fmt.Sprintf("%s-%d-%d", project, time, i)
@@ -162,10 +171,8 @@ func (c GCECoreClient) Run(project string, channel string, region string, size s
 				},
 			},
 		}
-		log.Printf("starting instance: %q", project)
-		_, err := c.service.Instances.Insert(project_id, zone, instance).Do()
+		_, err := c.service.Instances.Insert(c.project_id, c.region, instance).Do()
 		if err != nil {
-			log.Printf("instance insert api call failed: %v", err)
 			return err
 		}
 	}
@@ -174,12 +181,12 @@ func (c GCECoreClient) Run(project string, channel string, region string, size s
 
 func (c GCECoreClient) Terminate(project string) error {
 	filter := fmt.Sprintf("name eq %s.*", project)
-	instances, err := c.service.Instances.List(project_id, zone).Filter(filter).Do()
+	instances, err := c.service.Instances.List(c.project_id, c.region).Filter(filter).Do()
 	if err != nil {
 		return err
 	}
 	for _, instance := range instances.Items {
-		_, err := c.service.Instances.Delete(project_id, zone, instance.Name).Do()
+		_, err := c.service.Instances.Delete(c.project_id, c.region, instance.Name).Do()
 		if err != nil {
 			return err
 		}
@@ -190,7 +197,7 @@ func (c GCECoreClient) Terminate(project string) error {
 func (c GCECoreClient) List(project string) error {
 	// TODO would be more ideal to filter on tags, but I could not find that
 	filter := fmt.Sprintf("name eq %s.*", project)
-	instances, err := c.service.Instances.List(project_id, zone).Filter(filter).Do()
+	instances, err := c.service.Instances.List(c.project_id, c.region).Filter(filter).Do()
 	if err != nil {
 		return err
 	}
