@@ -25,6 +25,7 @@ var oauthCfg = &oauth.Config{
 }
 
 const profileInfoURL = "https://www.googleapis.com/oauth2/v1/userinfo?alt=json"
+const defaultEC2Region = "us-west-2"
 
 var assumeRoleARN string
 
@@ -111,6 +112,9 @@ func EC2GetClient(project string, region string, cache_path string) (EC2CoreClie
 		return c, err
 	}
 	c.cache = cache
+	if region == "" {
+		region = defaultEC2Region
+	}
 	if c.cache.AWSAccessKey == "" || c.cache.AWSSecretKey == "" {
 		if cache.GoogSSOClientID == "" || cache.GoogSSOClientSecret == "" {
 			var client_id string

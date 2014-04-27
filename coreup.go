@@ -33,7 +33,7 @@ var (
 	cloudConfig = flag.String("cloud-config", "./cloud-config.yml", "local file, usually ./cloud-config.yml")
 	channel     = flag.String("channel", "alpha", "CoreOS channel to use")
 	provider    = flag.String("provider", "ec2", "cloud or provider to launch instance in")
-	region      = flag.String("region", "us-west-2", "region to launch instance in")
+	region      = flag.String("region", "", "region to launch instance in")
 	action      = flag.String("action", "run", "run, terminate, list")
 	size        = flag.String("size", "m1.medium", "size of instance")
 	num         = flag.Int("num", 1, "number of instances to launch like this")

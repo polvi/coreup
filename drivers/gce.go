@@ -13,7 +13,7 @@ import (
 	compute "code.google.com/p/google-api-go-client/compute/v1"
 )
 
-var ErrNotImplemeted = errors.New("not implemented")
+const defaultGCERegion = "us-central1-a"
 
 type GCECoreClient struct {
 	service    *compute.Service
@@ -26,6 +26,9 @@ func GCEGetClient(project string, region string, cache_path string) (*GCECoreCli
 	cache, err := LoadCredCache(cache_path)
 	if err != nil {
 		return nil, err
+	}
+	if region == "" {
+		region = defaultGCERegion
 	}
 	if cache.GoogProject == "" {
 		var project string
