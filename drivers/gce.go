@@ -63,30 +63,24 @@ func GCEGetClient(project string, region string, cache_path string) (*GCECoreCli
 	cfg := &oauth.Config{
 		ClientId:     cache.GoogSSOClientID,
 		ClientSecret: cache.GoogSSOClientSecret,
-		Scope:        "https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/compute https://www.googleapis.com/auth/devstorage.read_write",
+		Scope:        "https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/compute https://www.googleapis.com/auth/devstorage.read_write https://www.googleapis.com/auth/userinfo.email",
 		RedirectURL:  "http://localhost:8016/oauth2callback",
 		AuthURL:      "https://accounts.google.com/o/oauth2/auth",
 		TokenURL:     "https://accounts.google.com/o/oauth2/token",
 	}
-	if cache.GoogAccessToken == "" || time.Now().After(cache.GoogAccessTokenExpiry) {
+	if cache.GoogToken.Expiry.Before(time.Now()) {
 		token, err := authRefreshToken(cfg)
 		if err != nil {
 			return nil, err
 		}
-		cache.GoogAccessToken = token.AccessToken
-		if k, ok := token.Extra["id_token"]; ok {
-			cache.GoogIdToken = k
-		}
-		cache.GoogAccessTokenExpiry = token.Expiry
+		cache.GoogToken = *token
 		cache.Save()
 
 	}
-	token := cache.GoogAccessToken
+	token := &cache.GoogToken
 	transport := &oauth.Transport{
-		Config: cfg,
-		Token: &oauth.Token{
-			AccessToken: token,
-		},
+		Config:    cfg,
+		Token:     token,
 		Transport: http.DefaultTransport,
 	}
 	svc, err := compute.New(transport.Client())

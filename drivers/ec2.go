@@ -1,11 +1,12 @@
 package drivers
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -14,90 +15,43 @@ import (
 	"github.com/polvi/goamz/aws"
 	"github.com/polvi/goamz/ec2"
 	"github.com/polvi/goamz/sts"
-	"github.com/skratchdot/open-golang/open"
 )
 
-var oauthCfg = &oauth.Config{
-	AuthURL:     "https://accounts.google.com/o/oauth2/auth",
-	TokenURL:    "https://accounts.google.com/o/oauth2/token",
-	RedirectURL: "http://localhost:8016/oauth2callback",
-	Scope:       "https://www.googleapis.com/auth/userinfo.email",
-}
-
-const profileInfoURL = "https://www.googleapis.com/oauth2/v1/userinfo?alt=json"
 const defaultEC2Region = "us-west-2"
 
-var assumeRoleARN string
-
-type GoogleEmail struct {
-	Id            string `json:"id"`
-	Email         string `json:"email"`
-	VerifiedEmail bool   `json:"verified_email"`
+type ExpiringAuth struct {
+	Auth   aws.Auth
+	Expiry time.Time
 }
 
-func handleOAuth2Callback(w http.ResponseWriter, r *http.Request) (aws.Auth, error) {
-	auth := aws.Auth{}
-
-	code := r.FormValue("code")
-
-	t := &oauth.Transport{Config: oauthCfg}
-
-	// Exchange the received code for a token
-	token, _ := t.Exchange(code)
-
-	//now get user data based on the Transport which has the token
-	resp, err := t.Client().Get(profileInfoURL)
-	if err != nil {
-		return auth, err
-	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return auth, err
-	}
-	var goog GoogleEmail
-	err = json.Unmarshal(body, &goog)
-	if err != nil {
-		return auth, err
-	}
-
+func authAWSFromToken(token *oauth.Token, arn string) (*ExpiringAuth, error) {
+	// all regions have the same sts endpoint, so we just use us-east-1
 	client := sts.New(aws.Regions["us-east-1"])
-	aws_resp, err := client.AssumeRoleWithWebIdentity(3600, "", "", assumeRoleARN, goog.Email, token.Extra["id_token"])
+	duration := 3600 // seconds
+	expiry := time.Now().Add(time.Duration(duration) * time.Second)
+	// we use the token expiry as the client id to avoid another
+	// call to google to fetch an email or something
+	if _, ok := token.Extra["id_token"]; !ok {
+		return nil, errors.New("unable to find id_token")
+	}
+	resp, err := client.AssumeRoleWithWebIdentity(
+		duration,
+		"",
+		"",
+		arn,
+		strconv.Itoa(int(token.Expiry.Unix())),
+		token.Extra["id_token"])
 	if err != nil {
-		return auth, err
+		return nil, err
 	}
-	auth = aws.Auth{
-		AccessKey: aws_resp.Credentials.AccessKeyId,
-		SecretKey: aws_resp.Credentials.SecretAccessKey,
-		Token:     aws_resp.Credentials.SessionToken,
-	}
-	if err != nil {
-		return auth, err
-	}
-	return auth, nil
-}
-
-func authFromOAuth() (aws.Auth, error) {
-	type authres struct {
-		auth aws.Auth
-		err  error
-	}
-
-	l, err := net.Listen("tcp", "localhost:8016")
-	defer l.Close()
-	if err != nil {
-		return aws.Auth{}, err
-	}
-	url := oauthCfg.AuthCodeURL("")
-	open.Run(url)
-	ch := make(chan *authres, 1)
-	f := func(w http.ResponseWriter, r *http.Request) {
-		a, err := handleOAuth2Callback(w, r)
-		ch <- &authres{a, err}
-	}
-	go http.Serve(l, http.HandlerFunc(f))
-	r := <-ch
-	return r.auth, r.err
+	return &ExpiringAuth{
+		Auth: aws.Auth{
+			AccessKey: resp.Credentials.AccessKeyId,
+			SecretKey: resp.Credentials.SecretAccessKey,
+			Token:     resp.Credentials.SessionToken,
+		},
+		Expiry: expiry,
+	}, nil
 }
 
 type EC2CoreClient struct {
@@ -106,6 +60,8 @@ type EC2CoreClient struct {
 }
 
 func EC2GetClient(project string, region string, cache_path string) (EC2CoreClient, error) {
+	// this will cause the google cache to be populated
+	GCEGetClient(project, region, cache_path)
 	c := EC2CoreClient{}
 	cache, err := LoadCredCache(cache_path)
 	if err != nil {
@@ -115,73 +71,26 @@ func EC2GetClient(project string, region string, cache_path string) (EC2CoreClie
 	if region == "" {
 		region = defaultEC2Region
 	}
-	if c.cache.AWSAccessKey == "" || c.cache.AWSSecretKey == "" {
-		if cache.GoogSSOClientID == "" || cache.GoogSSOClientSecret == "" {
-			var client_id string
-			var client_secret string
-			fmt.Printf("google client id: ")
-			_, err = fmt.Scanf("%s", &client_id)
-			if err != nil {
-				return c, err
-			}
-			c.cache.GoogSSOClientID = strings.TrimSpace(client_id)
-			fmt.Printf("google client secret: ")
-			_, err = fmt.Scanf("%s", &client_secret)
-			if err != nil {
-				return c, err
-			}
-			c.cache.GoogSSOClientSecret = strings.TrimSpace(client_secret)
-			if err != nil {
-				return c, err
-			}
-			if cache.AWSRoleARN == "" {
-				var arn string
-				fmt.Printf("amazon role arn: ")
-				_, err = fmt.Scanf("%s", &arn)
-				if err != nil {
-					return c, err
-				}
-				c.cache.AWSRoleARN = strings.TrimSpace(arn)
-			}
-		}
-	} else {
-		// this tests if the existing creds are valid
-		auth := aws.Auth{
-			AccessKey: c.cache.AWSAccessKey,
-			SecretKey: c.cache.AWSSecretKey,
-			Token:     c.cache.AWSToken,
-		}
-		c.client = ec2.New(auth, aws.Regions[region])
-		_, err := c.serversByProject(project)
+	if cache.AWSRoleARN == "" {
+		var arn string
+		fmt.Printf("amazon role arn: ")
+		_, err = fmt.Scanf("%s", &arn)
 		if err != nil {
-			c.cache.AWSAccessKey = ""
-			c.cache.AWSSecretKey = ""
-			c.cache.AWSToken = ""
-			c.cache.Save()
-		}
-	}
-	oauthCfg.ClientId = c.cache.GoogSSOClientID
-	oauthCfg.ClientSecret = c.cache.GoogSSOClientSecret
-	assumeRoleARN = c.cache.AWSRoleARN
-	if c.cache.AWSAccessKey == "" || c.cache.AWSSecretKey == "" {
-		auth, err := authFromOAuth()
-		if err != nil {
-			fmt.Println("unable to get aws client")
 			return c, err
 		}
-		c.cache.AWSAccessKey = auth.AccessKey
-		c.cache.AWSSecretKey = auth.SecretKey
-		c.cache.AWSToken = auth.Token
+		c.cache.AWSRoleARN = strings.TrimSpace(arn)
 		c.cache.Save()
 	}
-	auth := aws.Auth{
-		AccessKey: c.cache.AWSAccessKey,
-		SecretKey: c.cache.AWSSecretKey,
-		Token:     c.cache.AWSToken,
+	if c.cache.AWSToken.Expiry.Before(time.Now()) {
+		auth, err := authAWSFromToken(&c.cache.GoogToken, c.cache.AWSRoleARN)
+		if err != nil {
+			return c, err
+		}
+		c.cache.AWSToken = *auth
+		c.cache.Save()
 	}
-	c.client = ec2.New(auth, aws.Regions[region])
+	c.client = ec2.New(c.cache.AWSToken.Auth, aws.Regions[region])
 	return c, nil
-
 }
 
 func getEc2AmiUrl(channel string) string {
