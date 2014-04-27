@@ -173,7 +173,18 @@ func (c GCECoreClient) Run(project string, channel string, region string, size s
 }
 
 func (c GCECoreClient) Terminate(project string) error {
-	return ErrNotImplemeted
+	filter := fmt.Sprintf("name eq %s.*", project)
+	instances, err := c.service.Instances.List(project_id, zone).Filter(filter).Do()
+	if err != nil {
+		return err
+	}
+	for _, instance := range instances.Items {
+		_, err := c.service.Instances.Delete(project_id, zone, instance.Name).Do()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c GCECoreClient) List(project string) error {
