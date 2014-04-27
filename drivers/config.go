@@ -6,20 +6,23 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"time"
 )
 
 type CredCache struct {
-	path                string
-	RackspaceUser       string
-	RackspaceAPIKey     string
-	GoogSSOClientID     string
-	GoogSSOClientSecret string
-	AWSRoleARN          string
-	AWSAccessKey        string
-	AWSSecretKey        string
-	AWSToken            string
-	GoogAccessToken     string
-	GoogProject         string
+	path                  string
+	RackspaceUser         string
+	RackspaceAPIKey       string
+	GoogSSOClientID       string
+	GoogSSOClientSecret   string
+	AWSRoleARN            string
+	AWSAccessKey          string
+	AWSSecretKey          string
+	AWSToken              string
+	GoogAccessToken       string
+	GoogIdToken           string
+	GoogAccessTokenExpiry time.Time
+	GoogProject           string
 }
 
 func LoadCredCache(config string) (*CredCache, error) {
