@@ -57,6 +57,7 @@ func authAWSFromToken(token *oauth.Token, arn string) (*ExpiringAuth, error) {
 type EC2CoreClient struct {
 	client *ec2.EC2
 	cache  *CredCache
+	region string
 }
 
 func EC2GetClient(project string, region string, cache_path string) (EC2CoreClient, error) {
@@ -69,7 +70,7 @@ func EC2GetClient(project string, region string, cache_path string) (EC2CoreClie
 	}
 	c.cache = cache
 	if region == "" {
-		region = defaultEC2Region
+		c.region = defaultEC2Region
 	}
 	if cache.AWSRoleARN == "" {
 		var arn string
@@ -89,7 +90,7 @@ func EC2GetClient(project string, region string, cache_path string) (EC2CoreClie
 		c.cache.AWSToken = *auth
 		c.cache.Save()
 	}
-	c.client = ec2.New(c.cache.AWSToken.Auth, aws.Regions[region])
+	c.client = ec2.New(c.cache.AWSToken.Auth, aws.Regions[c.region])
 	return c, nil
 }
 
@@ -133,11 +134,18 @@ func ec2GetSecurityGroup(client *ec2.EC2, project string) ec2.SecurityGroup {
 	return sg
 }
 
-func (c EC2CoreClient) Run(project string, channel string, region string, size string, num int, block bool, cloud_config string, image string) error {
+func (c EC2CoreClient) Run(project string, channel string, size string, num int, block bool, cloud_config string, image string) error {
 	ami := image
 	if image == "" {
-		amis, _ := ec2GetAmis(getEc2AmiUrl(channel))
-		ami = amis[region]
+		amis, err := ec2GetAmis(getEc2AmiUrl(channel))
+		if err != nil {
+			return err
+		}
+		a, ok := amis[c.region]
+		if !ok {
+			return errors.New("could not find region " + c.region)
+		}
+		ami = a
 	}
 	sg := ec2GetSecurityGroup(c.client, project)
 	options := ec2.RunInstances{

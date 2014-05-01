@@ -12,7 +12,7 @@ import (
 )
 
 type CoreClient interface {
-	Run(project string, channel string, region string, size string, num int, block bool, cloud_config string, image string) error
+	Run(project string, channel string, size string, num int, block bool, cloud_config string, image string) error
 	List(project string) error
 	Terminate(project string) error
 }
@@ -22,7 +22,7 @@ func getClient(provider string, region string) (CoreClient, error) {
 	case "ec2":
 		return drivers.EC2GetClient(project, region, cache_path)
 	case "rackspace":
-		return drivers.RackspaceGetClient(project, "", cache_path)
+		return drivers.RackspaceGetClient(project, region, cache_path)
 	case "google":
 		return drivers.GCEGetClient(project, region, cache_path)
 	}
@@ -70,7 +70,7 @@ func main() {
 	}
 	switch *action {
 	case "run":
-		err = c.Run(project, *channel, *region, *size, *num, *block, cloud_config, image)
+		err = c.Run(project, *channel, *size, *num, *block, cloud_config, image)
 		if err != nil {
 			fmt.Println("error launching instances", err)
 			os.Exit(1)

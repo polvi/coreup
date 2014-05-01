@@ -9,10 +9,12 @@ import (
 type RackspaceCoreClient struct {
 	client gophercloud.CloudServersProvider
 	cache  *CredCache
+	region string
 }
 
 const (
-	defaultImage = "6bdbd558-e66c-49cc-9ff3-126e7411f602"
+	defaultImage           = "6bdbd558-e66c-49cc-9ff3-126e7411f602"
+	defaultRackspaceRegion = "ORD"
 )
 
 func RackspaceGetClient(project string, region string, cache_path string) (RackspaceCoreClient, error) {
@@ -23,6 +25,10 @@ func RackspaceGetClient(project string, region string, cache_path string) (Racks
 		return c, err
 	}
 	c.cache = cache
+	if region == "" {
+		region = defaultRackspaceRegion
+	}
+	c.region = region
 	if c.cache.RackspaceUser == "" || c.cache.RackspaceAPIKey == "" {
 		var rack_user string
 		var rack_pass string
@@ -65,10 +71,9 @@ func RackspaceGetClient(project string, region string, cache_path string) (Racks
 	}
 	c.client = client
 	return c, nil
-
 }
 
-func (c RackspaceCoreClient) Run(project string, channel string, region string, size string, num int, block bool, cloud_config string, image string) error {
+func (c RackspaceCoreClient) Run(project string, channel string, size string, num int, block bool, cloud_config string, image string) error {
 	b := []byte(cloud_config)
 	cc_b64 := base64.StdEncoding.EncodeToString(b)
 	metadata := map[string]string{"coreup": project}

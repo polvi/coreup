@@ -130,7 +130,7 @@ func (c GCECoreClient) waitForOp(op *compute.Operation, zone string) error {
 	return err
 }
 
-func (c GCECoreClient) Run(project string, channel string, region string, size string, num int, block bool, cloud_config string, image string) error {
+func (c GCECoreClient) Run(project string, channel string, size string, num int, block bool, cloud_config string, image string) error {
 	prefix := "https://www.googleapis.com/compute/v1/projects/" + c.project_id
 	time := time.Now().Unix()
 	for i := 0; i < num; i++ {
