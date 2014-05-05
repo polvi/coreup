@@ -70,8 +70,9 @@ func EC2GetClient(project string, region string, cache_path string) (EC2CoreClie
 	}
 	c.cache = cache
 	if region == "" {
-		c.region = defaultEC2Region
+		region = defaultEC2Region
 	}
+	c.region = region
 	if cache.AWSRoleARN == "" {
 		var arn string
 		fmt.Printf("amazon role arn: ")
@@ -89,6 +90,9 @@ func EC2GetClient(project string, region string, cache_path string) (EC2CoreClie
 		}
 		c.cache.AWSToken = *auth
 		c.cache.Save()
+	}
+	if _, ok := aws.Regions[c.region]; !ok {
+		return c, errors.New("could not find region " + c.region)
 	}
 	c.client = ec2.New(c.cache.AWSToken.Auth, aws.Regions[c.region])
 	return c, nil

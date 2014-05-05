@@ -33,8 +33,6 @@ var (
 		cachePath string
 		provider  string
 		region    string
-
-		image string
 	}{}
 )
 
@@ -57,6 +55,9 @@ func init() {
 
 	globalFlagset.StringVar(&globalFlags.provider, "provider", "ec2",
 		"cloud or provider to launch instance in")
+
+	globalFlagset.StringVar(&globalFlags.region, "region", "us-west-1",
+		"region of the cloud to run these commands in")
 
 	commands = []*Command{
 		cmdHelp,
