@@ -90,12 +90,6 @@ func main() {
 
 	var cmd *Command
 
-	client, err = getClient(globalFlags.project, globalFlags.provider, globalFlags.region, globalFlags.cachePath)
-	if err != nil {
-		fmt.Println("Unable to create client:", err)
-		os.Exit(1)
-	}
-
 	// determine which Command should be run
 	for _, c := range commands {
 		if c.Name == args[0] {
@@ -112,6 +106,12 @@ func main() {
 		fmt.Printf("%v: unknown subcommand: %q\n", cliName, args[0])
 		fmt.Printf("Run '%v help' for usage.\n", cliName)
 		os.Exit(2)
+	}
+
+	client, err = getClient(globalFlags.project, globalFlags.provider, globalFlags.region, globalFlags.cachePath)
+	if err != nil {
+		fmt.Println("Unable to create client:", err)
+		os.Exit(1)
 	}
 
 	os.Exit(cmd.Run(cmd.Flags.Args()))
