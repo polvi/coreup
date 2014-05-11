@@ -41,6 +41,7 @@ func LoadCredCache(config string) (*CredCache, error) {
 	}
 	return &c, nil
 }
+
 func (c *CredCache) ReadAll() error {
 	conf, err := ioutil.ReadFile(c.path)
 	if err != nil {
