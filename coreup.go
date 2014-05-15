@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/user"
 	"text/tabwriter"
+
+	"github.com/polvi/coreup/drivers"
 )
 
 const (
@@ -26,7 +28,7 @@ var (
 	out           *tabwriter.Writer
 	commands      []*Command
 	globalFlagset *flag.FlagSet = flag.NewFlagSet(cliName, flag.ExitOnError)
-	client        CoreClient
+	client        drivers.Client
 
 	globalFlags = struct {
 		project   string
@@ -109,7 +111,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	client, err = getClient(globalFlags.project, globalFlags.provider, globalFlags.region, globalFlags.cachePath)
+	client, err = drivers.FromName(globalFlags.provider, globalFlags.project, globalFlags.region, globalFlags.cachePath)
 	if err != nil {
 		fmt.Println("Unable to create client:", err)
 		os.Exit(1)

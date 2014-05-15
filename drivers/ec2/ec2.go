@@ -1,4 +1,4 @@
-package drivers
+package ec2
 
 import (
 	"errors"
@@ -12,19 +12,17 @@ import (
 	"time"
 
 	"code.google.com/p/goauth2/oauth"
+	"github.com/polvi/coreup/drivers/gce"
 	"github.com/polvi/goamz/aws"
 	"github.com/polvi/goamz/ec2"
 	"github.com/polvi/goamz/sts"
+
+	"github.com/polvi/coreup/config"
 )
 
-const defaultEC2Region = "us-west-2"
+const defaultRegion = "us-west-2"
 
-type ExpiringAuth struct {
-	Auth   aws.Auth
-	Expiry time.Time
-}
-
-func authAWSFromToken(token *oauth.Token, arn string) (*ExpiringAuth, error) {
+func authAWSFromToken(token *oauth.Token, arn string) (*config.ExpiringAuth, error) {
 	// all regions have the same sts endpoint, so we just use us-east-1
 	client := sts.New(aws.Regions["us-east-1"])
 	duration := 3600 // seconds
@@ -44,7 +42,7 @@ func authAWSFromToken(token *oauth.Token, arn string) (*ExpiringAuth, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &ExpiringAuth{
+	return &config.ExpiringAuth{
 		Auth: aws.Auth{
 			AccessKey: resp.Credentials.AccessKeyId,
 			SecretKey: resp.Credentials.SecretAccessKey,
@@ -54,47 +52,47 @@ func authAWSFromToken(token *oauth.Token, arn string) (*ExpiringAuth, error) {
 	}, nil
 }
 
-type EC2CoreClient struct {
+type Client struct {
 	client *ec2.EC2
-	cache  *CredCache
+	cache  *config.CredCache
 	region string
 }
 
-func EC2GetClient(project string, region string, cache_path string) (EC2CoreClient, error) {
+func GetClient(project string, region string, cache_path string) (Client, error) {
 	// this will cause the google cache to be populated
-	GCEGetClient(project, region, cache_path)
-	c := EC2CoreClient{}
-	cache, err := LoadCredCache(cache_path)
+	gce.GetClient(project, region, cache_path)
+	c := Client{}
+	cache, err := config.LoadCredCache(cache_path)
 	if err != nil {
 		return c, err
 	}
 	c.cache = cache
 	if region == "" {
-		region = defaultEC2Region
+		region = defaultRegion
 	}
 	c.region = region
-	if cache.AWSRoleARN == "" {
+	if cache.AWS.RoleARN == "" {
 		var arn string
 		fmt.Printf("amazon role arn: ")
 		_, err = fmt.Scanf("%s", &arn)
 		if err != nil {
 			return c, err
 		}
-		c.cache.AWSRoleARN = strings.TrimSpace(arn)
+		c.cache.AWS.RoleARN = strings.TrimSpace(arn)
 		c.cache.Save()
 	}
-	if c.cache.AWSToken.Expiry.Before(time.Now()) {
-		auth, err := authAWSFromToken(&c.cache.GoogToken, c.cache.AWSRoleARN)
+	if c.cache.AWS.Token.Expiry.Before(time.Now()) {
+		auth, err := authAWSFromToken(&c.cache.GCE.Token, c.cache.AWS.RoleARN)
 		if err != nil {
 			return c, err
 		}
-		c.cache.AWSToken = *auth
+		c.cache.AWS.Token = *auth
 		c.cache.Save()
 	}
 	if _, ok := aws.Regions[c.region]; !ok {
 		return c, errors.New("could not find region " + c.region)
 	}
-	c.client = ec2.New(c.cache.AWSToken.Auth, aws.Regions[c.region])
+	c.client = ec2.New(c.cache.AWS.Token.Auth, aws.Regions[c.region])
 	return c, nil
 }
 
@@ -138,7 +136,7 @@ func ec2GetSecurityGroup(client *ec2.EC2, project string) ec2.SecurityGroup {
 	return sg
 }
 
-func (c EC2CoreClient) Run(project string, channel string, size string, num int, block bool, cloud_config string, image string) error {
+func (c Client) Run(project string, channel string, size string, num int, block bool, cloud_config string, image string) error {
 	ami := image
 	if image == "" {
 		amis, err := ec2GetAmis(getEc2AmiUrl(channel))
@@ -221,7 +219,7 @@ func blockUntilSSH(servers []string) {
 	wg.Wait()
 }
 
-func (c EC2CoreClient) serversByProject(project string) ([]ec2.Instance, error) {
+func (c Client) serversByProject(project string) ([]ec2.Instance, error) {
 	filter := ec2.NewFilter()
 	filter.Add("tag:coreup-project", project)
 	filter.Add("instance-state-name", "running")
@@ -239,7 +237,7 @@ func (c EC2CoreClient) serversByProject(project string) ([]ec2.Instance, error) 
 
 }
 
-func (c EC2CoreClient) Terminate(project string) error {
+func (c Client) Terminate(project string) error {
 	instances, err := c.serversByProject(project)
 	if err != nil {
 		return err
@@ -264,7 +262,7 @@ func (c EC2CoreClient) Terminate(project string) error {
 	return nil
 }
 
-func (c EC2CoreClient) List(project string) error {
+func (c Client) List(project string) error {
 	instances, err := c.serversByProject(project)
 	if err != nil {
 		return err

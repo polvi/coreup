@@ -1,24 +1,40 @@
-package drivers
+package config
 
 import (
-	"code.google.com/p/goauth2/oauth"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
+	"time"
+
+	"code.google.com/p/goauth2/oauth"
+	"github.com/polvi/goamz/aws"
 )
+
+type ExpiringAuth struct {
+	Auth   aws.Auth
+	Expiry time.Time
+}
 
 type CredCache struct {
 	path                string
-	RackspaceUser       string
-	RackspaceAPIKey     string
-	GoogSSOClientID     string
-	GoogSSOClientSecret string
-	AWSRoleARN          string
-	AWSToken            ExpiringAuth
-	GoogProject         string
-	GoogToken           oauth.Token
+	Rackspace struct {
+		User string
+		APIKey string
+	}
+
+	GCE struct {
+		SSOClientID     string
+		SSOClientSecret string
+		Project         string
+		Token           oauth.Token
+	}
+
+	AWS struct {
+		RoleARN          string
+		Token            ExpiringAuth
+	}
 }
 
 func LoadCredCache(config string) (*CredCache, error) {
