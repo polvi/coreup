@@ -1,35 +1,37 @@
-package drivers
+package rackspace
 
 import (
 	"encoding/base64"
 	"fmt"
+
+	"github.com/polvi/coreup/config"
 	"github.com/rackspace/gophercloud"
 )
 
-type RackspaceCoreClient struct {
+type Client struct {
 	client gophercloud.CloudServersProvider
-	cache  *CredCache
+	cache  *config.CredCache
 	region string
 }
 
 const (
 	defaultImage           = "6bdbd558-e66c-49cc-9ff3-126e7411f602"
-	defaultRackspaceRegion = "ORD"
+	defaultRegion = "ORD"
 )
 
-func RackspaceGetClient(project string, region string, cache_path string) (RackspaceCoreClient, error) {
-	c := RackspaceCoreClient{}
-	cache, err := LoadCredCache(cache_path)
+func GetClient(project string, region string, cache_path string) (Client, error) {
+	c := Client{}
+	cache, err := config.LoadCredCache(cache_path)
 	if err != nil {
 		fmt.Println("unable to get cache")
 		return c, err
 	}
 	c.cache = cache
 	if region == "" {
-		region = defaultRackspaceRegion
+		region = defaultRegion
 	}
 	c.region = region
-	if c.cache.RackspaceUser == "" || c.cache.RackspaceAPIKey == "" {
+	if c.cache.Rackspace.User == "" || c.cache.Rackspace.APIKey == "" {
 		var rack_user string
 		var rack_pass string
 		fmt.Printf("rackspace user: ")
@@ -42,22 +44,22 @@ func RackspaceGetClient(project string, region string, cache_path string) (Racks
 		if err != nil {
 			return c, err
 		}
-		c.cache.RackspaceUser = rack_user
-		c.cache.RackspaceAPIKey = rack_pass
+		c.cache.Rackspace.User = rack_user
+		c.cache.Rackspace.APIKey = rack_pass
 		c.cache.Save()
 		if err != nil {
 			return c, err
 		}
 	}
 	ao := gophercloud.AuthOptions{
-		Username:    c.cache.RackspaceUser,
-		ApiKey:      c.cache.RackspaceAPIKey,
+		Username:    c.cache.Rackspace.User,
+		ApiKey:      c.cache.Rackspace.APIKey,
 		AllowReauth: true,
 	}
 	access, err := gophercloud.Authenticate("rackspace-us", ao)
 	if err != nil {
-		c.cache.RackspaceUser = ""
-		c.cache.RackspaceAPIKey = ""
+		c.cache.Rackspace.User = ""
+		c.cache.Rackspace.APIKey = ""
 		c.cache.Save()
 		return c, err
 	}
@@ -73,7 +75,7 @@ func RackspaceGetClient(project string, region string, cache_path string) (Racks
 	return c, nil
 }
 
-func (c RackspaceCoreClient) Run(project string, channel string, size string, num int, block bool, cloud_config string, image string) error {
+func (c Client) Run(project string, channel string, size string, num int, block bool, cloud_config string, image string) error {
 	b := []byte(cloud_config)
 	cc_b64 := base64.StdEncoding.EncodeToString(b)
 	metadata := map[string]string{"coreup": project}
@@ -96,7 +98,7 @@ func (c RackspaceCoreClient) Run(project string, channel string, size string, nu
 	}
 	return nil
 }
-func (c RackspaceCoreClient) serversByProject(project string) ([]gophercloud.Server, error) {
+func (c Client) serversByProject(project string) ([]gophercloud.Server, error) {
 	matches := make([]gophercloud.Server, 0)
 	servers, err := c.client.ListServers()
 	if err != nil {
@@ -111,7 +113,7 @@ func (c RackspaceCoreClient) serversByProject(project string) ([]gophercloud.Ser
 	return matches, err
 
 }
-func (c RackspaceCoreClient) Terminate(project string) error {
+func (c Client) Terminate(project string) error {
 	servers, err := c.serversByProject(project)
 	for _, s := range servers {
 		err = c.client.DeleteServerById(s.Id)
@@ -121,7 +123,7 @@ func (c RackspaceCoreClient) Terminate(project string) error {
 	}
 	return nil
 }
-func (c RackspaceCoreClient) List(project string) error {
+func (c Client) List(project string) error {
 	servers, err := c.serversByProject(project)
 	if err != nil {
 		fmt.Println("unable to list servers", err)

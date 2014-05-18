@@ -1,46 +1,47 @@
-package drivers
+package gce
 
 import (
 	"errors"
 	"fmt"
-	"github.com/skratchdot/open-golang/open"
 	"net"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/polvi/coreup/config"
+	"github.com/skratchdot/open-golang/open"
 	"code.google.com/p/goauth2/oauth"
 	compute "code.google.com/p/google-api-go-client/compute/v1"
 )
 
-const defaultGCERegion = "us-central1-a"
+const defaultRegion = "us-central1-a"
 
-type GCECoreClient struct {
+type Client struct {
 	service    *compute.Service
-	cache      *CredCache
+	cache      *config.CredCache
 	region     string
 	project_id string
 }
 
-func GCEGetClient(project string, region string, cache_path string) (*GCECoreClient, error) {
-	cache, err := LoadCredCache(cache_path)
+func GetClient(project string, region string, cache_path string) (*Client, error) {
+	cache, err := config.LoadCredCache(cache_path)
 	if err != nil {
 		return nil, err
 	}
 	if region == "" {
-		region = defaultGCERegion
+		region = defaultRegion
 	}
-	if cache.GoogProject == "" {
+	if cache.GCE.Project == "" {
 		var project string
 		fmt.Printf("google project id: ")
 		_, err = fmt.Scanf("%s", &project)
 		if err != nil {
 			return nil, err
 		}
-		cache.GoogProject = strings.TrimSpace(project)
+		cache.GCE.Project = strings.TrimSpace(project)
 		cache.Save()
 	}
-	if cache.GoogSSOClientID == "" || cache.GoogSSOClientSecret == "" {
+	if cache.GCE.SSOClientID == "" || cache.GCE.SSOClientSecret == "" {
 		var client_id string
 		var client_secret string
 		fmt.Printf("google client id: ")
@@ -48,36 +49,36 @@ func GCEGetClient(project string, region string, cache_path string) (*GCECoreCli
 		if err != nil {
 			return nil, err
 		}
-		cache.GoogSSOClientID = strings.TrimSpace(client_id)
+		cache.GCE.SSOClientID = strings.TrimSpace(client_id)
 		fmt.Printf("google client secret: ")
 		_, err = fmt.Scanf("%s", &client_secret)
 		if err != nil {
 			return nil, err
 		}
-		cache.GoogSSOClientSecret = strings.TrimSpace(client_secret)
+		cache.GCE.SSOClientSecret = strings.TrimSpace(client_secret)
 		if err != nil {
 			return nil, err
 		}
 		cache.Save()
 	}
 	cfg := &oauth.Config{
-		ClientId:     cache.GoogSSOClientID,
-		ClientSecret: cache.GoogSSOClientSecret,
+		ClientId:     cache.GCE.SSOClientID,
+		ClientSecret: cache.GCE.SSOClientSecret,
 		Scope:        "https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/compute https://www.googleapis.com/auth/devstorage.read_write https://www.googleapis.com/auth/userinfo.email",
 		RedirectURL:  "http://localhost:8016/oauth2callback",
 		AuthURL:      "https://accounts.google.com/o/oauth2/auth",
 		TokenURL:     "https://accounts.google.com/o/oauth2/token",
 	}
-	if cache.GoogToken.Expiry.Before(time.Now()) {
+	if cache.GCE.Token.Expiry.Before(time.Now()) {
 		token, err := authRefreshToken(cfg)
 		if err != nil {
 			return nil, err
 		}
-		cache.GoogToken = *token
+		cache.GCE.Token = *token
 		cache.Save()
 
 	}
-	token := &cache.GoogToken
+	token := &cache.GCE.Token
 	transport := &oauth.Transport{
 		Config:    cfg,
 		Token:     token,
@@ -87,11 +88,11 @@ func GCEGetClient(project string, region string, cache_path string) (*GCECoreCli
 	if err != nil {
 		return nil, err
 	}
-	return &GCECoreClient{
+	return &Client{
 		service:    svc,
 		cache:      cache,
 		region:     region,
-		project_id: cache.GoogProject,
+		project_id: cache.GCE.Project,
 	}, nil
 }
 
@@ -115,7 +116,7 @@ func authRefreshToken(c *oauth.Config) (*oauth.Token, error) {
 	return token, err
 }
 
-func (c GCECoreClient) waitForOp(op *compute.Operation, zone string) error {
+func (c Client) waitForOp(op *compute.Operation, zone string) error {
 	op, err := c.service.ZoneOperations.Get(c.project_id, zone, op.Name).Do()
 	for op.Status != "DONE" {
 		time.Sleep(5 * time.Second)
@@ -130,7 +131,7 @@ func (c GCECoreClient) waitForOp(op *compute.Operation, zone string) error {
 	return err
 }
 
-func (c GCECoreClient) Run(project string, channel string, size string, num int, block bool, cloud_config string, image string) error {
+func (c Client) Run(project string, channel string, size string, num int, block bool, cloud_config string, image string) error {
 	prefix := "https://www.googleapis.com/compute/v1/projects/" + c.project_id
 	time := time.Now().Unix()
 	for i := 0; i < num; i++ {
@@ -180,7 +181,7 @@ func (c GCECoreClient) Run(project string, channel string, size string, num int,
 	return nil
 }
 
-func (c GCECoreClient) Terminate(project string) error {
+func (c Client) Terminate(project string) error {
 	filter := fmt.Sprintf("name eq %s.*", project)
 	instances, err := c.service.Instances.List(c.project_id, c.region).Filter(filter).Do()
 	if err != nil {
@@ -195,7 +196,7 @@ func (c GCECoreClient) Terminate(project string) error {
 	return nil
 }
 
-func (c GCECoreClient) List(project string) error {
+func (c Client) List(project string) error {
 	// TODO would be more ideal to filter on tags, but I could not find that
 	filter := fmt.Sprintf("name eq %s.*", project)
 	instances, err := c.service.Instances.List(c.project_id, c.region).Filter(filter).Do()
