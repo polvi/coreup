@@ -3,15 +3,16 @@ package gce
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/polvi/coreup/config"
-	"github.com/skratchdot/open-golang/open"
 	"code.google.com/p/goauth2/oauth"
 	compute "code.google.com/p/google-api-go-client/compute/v1"
+	"github.com/polvi/coreup/config"
+	"github.com/skratchdot/open-golang/open"
 )
 
 const defaultRegion = "us-central1-a"
@@ -131,9 +132,38 @@ func (c Client) waitForOp(op *compute.Operation, zone string) error {
 	return err
 }
 
+func getLatestImg(url string) (string, error) {
+	resp, err := http.Get(url)
+	defer resp.Body.Close()
+	if err != nil {
+		return "", err
+	}
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	res := strings.TrimSpace(string(body))
+	return fmt.Sprintf("https://www.googleapis.com/compute/v1/%s", res), nil
+}
+func getSrcImg(channel string) (string, error) {
+	url := fmt.Sprintf("http://storage.core-os.net/coreos/amd64-usr/%s/coreos_production_gce.txt", channel)
+	img, err := getLatestImg(url)
+	if err != nil {
+		return "", err
+	}
+	return img, nil
+}
+
 func (c Client) Run(project string, channel string, size string, num int, block bool, cloud_config string, image string) error {
 	prefix := "https://www.googleapis.com/compute/v1/projects/" + c.project_id
 	time := time.Now().Unix()
+	if image == "" {
+		img_src, err := getSrcImg(channel)
+		if err != nil {
+			return err
+		}
+		image = img_src
+	}
 	for i := 0; i < num; i++ {
 		name := fmt.Sprintf("%s-%d-%d", project, time, i)
 		instance := &compute.Instance{
@@ -147,7 +177,7 @@ func (c Client) Run(project string, channel string, size string, num int, block 
 					Type:       "PERSISTENT",
 					Mode:       "READ_WRITE",
 					InitializeParams: &compute.AttachedDiskInitializeParams{
-						SourceImage: "https://www.googleapis.com/compute/v1/projects/coreos-coreup/global/images/coreos-v298-0-0",
+						SourceImage: image,
 					},
 				},
 			},
