@@ -3,10 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/coreos/locksmith/version"
 	"os"
 	"strings"
 	"text/template"
+
+	"github.com/polvi/coreup/version"
 )
 
 var (
