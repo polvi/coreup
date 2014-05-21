@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/polvi/coreup/config"
-	"github.com/rackspace/gophercloud"
+	"github.com/polvi/coreup/Godeps/_workspace/src/github.com/rackspace/gophercloud"
 )
 
 type Client struct {
@@ -15,7 +15,7 @@ type Client struct {
 }
 
 const (
-	defaultImage           = "6bdbd558-e66c-49cc-9ff3-126e7411f602"
+	defaultImage  = "6bdbd558-e66c-49cc-9ff3-126e7411f602"
 	defaultRegion = "ORD"
 )
 
