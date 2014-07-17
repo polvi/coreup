@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"github.com/polvi/coreup/Godeps/_workspace/src/code.google.com/p/goauth2/oauth"
-	"github.com/polvi/coreup/drivers/gce"
 	"github.com/polvi/coreup/Godeps/_workspace/src/github.com/polvi/goamz/aws"
 	"github.com/polvi/coreup/Godeps/_workspace/src/github.com/polvi/goamz/ec2"
 	"github.com/polvi/coreup/Godeps/_workspace/src/github.com/polvi/goamz/sts"
+	"github.com/polvi/coreup/drivers/gce"
 
 	"github.com/polvi/coreup/config"
 )
@@ -97,7 +97,7 @@ func GetClient(project string, region string, cache_path string) (Client, error)
 }
 
 func getEc2AmiUrl(channel string) string {
-	return fmt.Sprintf("http://storage.core-os.net/coreos/amd64-usr/%s/coreos_production_ami_all.txt", channel)
+	return fmt.Sprintf("http://storage.core-os.net/coreos/amd64-usr/%s/coreos_production_ami_hvm.txt", channel)
 }
 
 func ec2GetAmis(url string) (map[string]string, error) {
