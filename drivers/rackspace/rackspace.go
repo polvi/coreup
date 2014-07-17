@@ -15,7 +15,7 @@ type Client struct {
 }
 
 const (
-	defaultImage           = "6bdbd558-e66c-49cc-9ff3-126e7411f602"
+	defaultImage  = "0372e576-873d-4a21-8466-d60232fa341c"
 	defaultRegion = "ORD"
 )
 
@@ -82,19 +82,22 @@ func (c Client) Run(project string, channel string, size string, num int, block 
 	if image == "" {
 		image = defaultImage
 	}
-	ns := gophercloud.NewServer{
-		Name:        project,
-		Metadata:    metadata,
-		ImageRef:    image,
-		FlavorRef:   size,
-		ConfigDrive: true,
-		UserData:    cc_b64,
-	}
+	for i := 0; i < num; i++ {
+		ns := gophercloud.NewServer{
+			Name:        project,
+			Metadata:    metadata,
+			ImageRef:    image,
+			FlavorRef:   size,
+			ConfigDrive: true,
+			UserData:    cc_b64,
+		}
 
-	_, err := c.client.CreateServer(ns)
-	if err != nil {
-		fmt.Println("unable to create server", err)
-		return err
+		_, err := c.client.CreateServer(ns)
+		if err != nil {
+			fmt.Println("unable to create server", err)
+			return err
+		}
+
 	}
 	return nil
 }
