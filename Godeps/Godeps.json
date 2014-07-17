@@ -1,0 +1,58 @@
+{
+	"ImportPath": "github.com/polvi/coreup",
+	"GoVersion": "go1.2",
+	"Packages": [
+		"./drivers",
+		"./config",
+		"./drivers/ec2",
+		"./drivers/gce",
+		"./drivers/rackspace"
+	],
+	"Deps": [
+		{
+			"ImportPath": "code.google.com/p/goauth2/oauth",
+			"Comment": "weekly-40",
+			"Rev": "5877582f0cb070bc21b199dab5e7d18fb546444a"
+		},
+		{
+			"ImportPath": "code.google.com/p/google-api-go-client/compute/v1",
+			"Comment": "release-84",
+			"Rev": "2ba9f0995cf0215c20ebd6de43a14d70af30fea6"
+		},
+		{
+			"ImportPath": "code.google.com/p/google-api-go-client/googleapi",
+			"Comment": "release-84",
+			"Rev": "2ba9f0995cf0215c20ebd6de43a14d70af30fea6"
+		},
+		{
+			"ImportPath": "github.com/mitchellh/mapstructure",
+			"Rev": "6b97cff17f16aef812d5c55c4892d40732d79eef"
+		},
+		{
+			"ImportPath": "github.com/polvi/goamz/aws",
+			"Rev": "60f97819771bf02b9a1fdcd5264b18046480648d"
+		},
+		{
+			"ImportPath": "github.com/polvi/goamz/ec2",
+			"Rev": "60f97819771bf02b9a1fdcd5264b18046480648d"
+		},
+		{
+			"ImportPath": "github.com/polvi/goamz/sts",
+			"Rev": "60f97819771bf02b9a1fdcd5264b18046480648d"
+		},
+		{
+			"ImportPath": "github.com/racker/perigee",
+			"Comment": "v0.0.0-11-g01db319",
+			"Rev": "01db3191866051f2ec854c2d876ac1a179d3049c"
+		},
+		{
+			"ImportPath": "github.com/rackspace/gophercloud",
+			"Comment": "v0.1.0-2-g2285a42",
+			"Rev": "2285a429874c1365ef6c6d3ceb08b1d428e26aca"
+		},
+		{
+			"ImportPath": "github.com/skratchdot/open-golang/open",
+			"Rev": "00211322a291dbf23c198deadcbbe78277440728"
+		}
+	]
+}

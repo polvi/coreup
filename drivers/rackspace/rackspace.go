@@ -4,8 +4,8 @@ import (
 	"encoding/base64"
 	"fmt"
 
+	"github.com/polvi/coreup/Godeps/_workspace/src/github.com/rackspace/gophercloud"
 	"github.com/polvi/coreup/config"
-	"github.com/rackspace/gophercloud"
 )
 
 type Client struct {

@@ -8,8 +8,8 @@ import (
 	"path"
 	"time"
 
-	"code.google.com/p/goauth2/oauth"
-	"github.com/polvi/goamz/aws"
+	"github.com/polvi/coreup/Godeps/_workspace/src/code.google.com/p/goauth2/oauth"
+	"github.com/polvi/coreup/Godeps/_workspace/src/github.com/polvi/goamz/aws"
 )
 
 type ExpiringAuth struct {
@@ -18,9 +18,9 @@ type ExpiringAuth struct {
 }
 
 type CredCache struct {
-	path                string
+	path      string
 	Rackspace struct {
-		User string
+		User   string
 		APIKey string
 	}
 
@@ -32,8 +32,8 @@ type CredCache struct {
 	}
 
 	AWS struct {
-		RoleARN          string
-		Token            ExpiringAuth
+		RoleARN string
+		Token   ExpiringAuth
 	}
 }
 

@@ -11,11 +11,11 @@ import (
 	"sync"
 	"time"
 
-	"code.google.com/p/goauth2/oauth"
+	"github.com/polvi/coreup/Godeps/_workspace/src/code.google.com/p/goauth2/oauth"
 	"github.com/polvi/coreup/drivers/gce"
-	"github.com/polvi/goamz/aws"
-	"github.com/polvi/goamz/ec2"
-	"github.com/polvi/goamz/sts"
+	"github.com/polvi/coreup/Godeps/_workspace/src/github.com/polvi/goamz/aws"
+	"github.com/polvi/coreup/Godeps/_workspace/src/github.com/polvi/goamz/ec2"
+	"github.com/polvi/coreup/Godeps/_workspace/src/github.com/polvi/goamz/sts"
 
 	"github.com/polvi/coreup/config"
 )
