@@ -238,7 +238,18 @@ func (c Client) serversByProject(project string) ([]ec2.Instance, error) {
 }
 
 func (c Client) Terminate(project string) error {
-	instances, err := c.serversByProject(project)
+	filter := ec2.NewFilter()
+	filter.Add("tag:coreup-project", project)
+	resp, err := c.client.Instances(nil, filter)
+	if err != nil {
+		return err
+	}
+	instances := make([]ec2.Instance, 0)
+	for _, res := range resp.Reservations {
+		for _, instance := range res.Instances {
+			instances = append(instances, instance)
+		}
+	}
 	if err != nil {
 		return err
 	}

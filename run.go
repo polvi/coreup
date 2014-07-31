@@ -28,7 +28,7 @@ func init() {
 	cmdRun.Flags.StringVar(&cloudConfigPath, "cloud-config", "./cloud-config.yml", "local file, usually ./cloud-config.yml")
 	cmdRun.Flags.StringVar(&channel, "channel", "alpha", "CoreOS channel to use")
 	cmdRun.Flags.StringVar(&provider, "provider", "ec2", "cloud or provider to launch instance in")
-	cmdRun.Flags.StringVar(&size, "size", "m1.medium", "size of instance")
+	cmdRun.Flags.StringVar(&size, "size", "t2.micro", "size of instance")
 	cmdRun.Flags.IntVar(&num, "num", 1, "number of instances to launch like this")
 	cmdRun.Flags.BoolVar(&block, "block-until-ready", true, "tell run commands to wait until machines are up to return")
 	cmdRun.Flags.StringVar(&image, "image", "", "image name (default to fetching from core-os.net)")
