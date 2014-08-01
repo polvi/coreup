@@ -3,6 +3,7 @@ package drivers
 import (
 	"errors"
 
+	"github.com/polvi/coreup/drivers/do"
 	"github.com/polvi/coreup/drivers/ec2"
 	"github.com/polvi/coreup/drivers/gce"
 	"github.com/polvi/coreup/drivers/rackspace"
@@ -16,6 +17,8 @@ func FromName(provider, project, region, cachePath string) (Client, error) {
 		return rackspace.GetClient(project, region, cachePath)
 	case "google":
 		return gce.GetClient(project, region, cachePath)
+	case "do":
+		return do.GetClient(project, region, cachePath)
 	}
 	return nil, errors.New("Unable to find provider")
 }

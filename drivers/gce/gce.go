@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/polvi/coreup/config"
-	"github.com/polvi/coreup/Godeps/_workspace/src/github.com/skratchdot/open-golang/open"
 	"github.com/polvi/coreup/Godeps/_workspace/src/code.google.com/p/goauth2/oauth"
 	compute "github.com/polvi/coreup/Godeps/_workspace/src/code.google.com/p/google-api-go-client/compute/v1"
+	"github.com/polvi/coreup/Godeps/_workspace/src/github.com/skratchdot/open-golang/open"
+	"github.com/polvi/coreup/config"
 )
 
 const defaultRegion = "us-central1-a"

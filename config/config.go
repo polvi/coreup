@@ -30,6 +30,9 @@ type CredCache struct {
 		Project         string
 		Token           oauth.Token
 	}
+	DO struct {
+		Token oauth.Token
+	}
 
 	AWS struct {
 		RoleARN string

@@ -1,12 +1,8 @@
 {
 	"ImportPath": "github.com/polvi/coreup",
-	"GoVersion": "go1.2",
+	"GoVersion": "go1.2.1",
 	"Packages": [
-		"./drivers",
-		"./config",
-		"./drivers/ec2",
-		"./drivers/gce",
-		"./drivers/rackspace"
+		"./..."
 	],
 	"Deps": [
 		{
@@ -23,6 +19,10 @@
 			"ImportPath": "code.google.com/p/google-api-go-client/googleapi",
 			"Comment": "release-84",
 			"Rev": "2ba9f0995cf0215c20ebd6de43a14d70af30fea6"
+		},
+		{
+			"ImportPath": "github.com/dynport/gocloud/digitalocean/v2/digitalocean",
+			"Rev": "9cc6cc4c01873b8709393b0fcfa58b8f3af97ee2"
 		},
 		{
 			"ImportPath": "github.com/mitchellh/mapstructure",
