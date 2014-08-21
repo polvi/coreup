@@ -227,7 +227,7 @@ func (c Client) Terminate(project string) error {
 		return err
 	}
 	var wg sync.WaitGroup
-	for i, instance := range instances.Items {
+	for _, instance := range instances.Items {
 		wg.Add(1)
 		go func(name string) {
 			defer wg.Done()

@@ -55,7 +55,7 @@ func init() {
 		"location to store credential tokens",
 	)
 
-	globalFlagset.StringVar(&globalFlags.provider, "provider", "ec2",
+	globalFlagset.StringVar(&globalFlags.provider, "provider", "do",
 		"cloud or provider to launch instance in")
 
 	globalFlagset.StringVar(&globalFlags.region, "region", "",

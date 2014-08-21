@@ -55,6 +55,7 @@ type CreateDroplet struct {
 	Region            string   `json:"region,omitempty"` // required
 	Size              string   `json:"size,omitempty"`   // required
 	Image             string   `json:"image,omitempty"`  // required
+	UserData          string   `json:"user_data,omitempty"`
 	SshKeys           []string `json:"ssh_keys,omitempty"`
 	Backups           bool     `json:"backups,omitempty"`
 	IPv6              bool     `json:"ipv6,omitempty"`

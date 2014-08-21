@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"time"
 
-	do "github.com/polvi/coreup/Godeps/_workspace/src/github.com/dynport/gocloud/digitalocean/v2/digitalocean"
 	"github.com/polvi/coreup/Godeps/_workspace/src/code.google.com/p/goauth2/oauth"
+	do "github.com/polvi/coreup/Godeps/_workspace/src/github.com/dynport/gocloud/digitalocean/v2/digitalocean"
 	"github.com/polvi/coreup/Godeps/_workspace/src/github.com/skratchdot/open-golang/open"
 	"github.com/polvi/coreup/config"
 )
@@ -31,7 +31,7 @@ func GetClient(project string, region string, cache_path string) (*Client, error
 	cfg := &oauth.Config{
 		ClientId:     "69d74afe2eb5cfde808a333e448cdd2a0bd60672ab483850ac38fe68b383e1db",
 		ClientSecret: "cf430afc2cff561a97883309700dc7966fec0ca5520e2a0fe0e2d8b382f6538a",
-		Scope:        "read",
+		Scope:        "read write",
 		RedirectURL:  "http://localhost:8016/oauth2callback",
 		AuthURL:      "https://cloud.digitalocean.com/v1/oauth/authorize",
 		TokenURL:     "https://cloud.digitalocean.com/v1/oauth/token",
@@ -84,10 +84,34 @@ func authRefreshToken(c *oauth.Config) (*oauth.Token, error) {
 }
 
 func (c Client) Run(project string, channel string, size string, num int, block bool, cloud_config string, image string) error {
+
+	create := do.CreateDroplet{
+		Name:     project,
+		Region:   "nyc3",
+		Size:     "512mb",
+		Image:    "5648377",
+		UserData: cloud_config,
+	}
+	_, err := create.Execute(c.service)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 func (c Client) Terminate(project string) error {
+	ds, err := c.service.Droplets()
+	if err != nil {
+		return err
+	}
+	for _, d := range ds.Droplets {
+		if d.Name == project {
+			err := c.service.DropletDelete(string(d.Id))
+			if err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
