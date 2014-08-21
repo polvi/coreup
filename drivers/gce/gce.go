@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/polvi/coreup/Godeps/_workspace/src/code.google.com/p/goauth2/oauth"
@@ -164,12 +165,13 @@ func (c Client) Run(project string, channel string, size string, num int, block 
 		}
 		image = img_src
 	}
+	var wg sync.WaitGroup
 	for i := 0; i < num; i++ {
 		name := fmt.Sprintf("%s-%d-%d", project, time, i)
 		instance := &compute.Instance{
 			Name:        name,
 			Description: project,
-			MachineType: prefix + "/zones/us-central1-a/machineTypes/n1-standard-1",
+			MachineType: prefix + "/zones/us-central1-a/machineTypes/f1-micro",
 			Disks: []*compute.AttachedDisk{
 				{
 					AutoDelete: true,
@@ -183,9 +185,11 @@ func (c Client) Run(project string, channel string, size string, num int, block 
 			},
 			NetworkInterfaces: []*compute.NetworkInterface{
 				{
-					AccessConfigs: []*compute.AccessConfig{
-						&compute.AccessConfig{Type: "ONE_TO_ONE_NAT"},
-					},
+					/*
+						AccessConfigs: []*compute.AccessConfig{
+							&compute.AccessConfig{Type: "ONE_TO_ONE_NAT"},
+						},
+					*/
 					Network: prefix + "/global/networks/default",
 				},
 			},
@@ -203,11 +207,16 @@ func (c Client) Run(project string, channel string, size string, num int, block 
 				},
 			},
 		}
-		_, err := c.service.Instances.Insert(c.project_id, c.region, instance).Do()
-		if err != nil {
-			return err
-		}
+		wg.Add(1)
+		go func(inst *compute.Instance) {
+			defer wg.Done()
+			_, err := c.service.Instances.Insert(c.project_id, c.region, inst).Do()
+			if err != nil {
+				fmt.Println(err)
+			}
+		}(instance)
 	}
+	wg.Wait()
 	return nil
 }
 
@@ -217,12 +226,18 @@ func (c Client) Terminate(project string) error {
 	if err != nil {
 		return err
 	}
-	for _, instance := range instances.Items {
-		_, err := c.service.Instances.Delete(c.project_id, c.region, instance.Name).Do()
-		if err != nil {
-			return err
-		}
+	var wg sync.WaitGroup
+	for i, instance := range instances.Items {
+		wg.Add(1)
+		go func(name string) {
+			defer wg.Done()
+			_, err := c.service.Instances.Delete(c.project_id, c.region, name).Do()
+			if err != nil {
+				fmt.Println(err)
+			}
+		}(instance.Name)
 	}
+	wg.Wait()
 	return nil
 }
 
@@ -234,7 +249,7 @@ func (c Client) List(project string) error {
 		return err
 	}
 	for _, instance := range instances.Items {
-		fmt.Println(instance.NetworkInterfaces[0].AccessConfigs[0].NatIP)
+		fmt.Println(instance)
 	}
 	return nil
 }
