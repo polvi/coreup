@@ -17,6 +17,7 @@ import (
 )
 
 const defaultRegion = "us-central1-a"
+const workers = 25
 
 type Client struct {
 	service    *compute.Service
@@ -155,6 +156,19 @@ func getSrcImg(channel string) (string, error) {
 	return img, nil
 }
 
+func (c Client) insertWorker(id int, queue chan *compute.Instance) {
+	for {
+		inst, ok := <-queue
+		if !ok {
+			break
+		}
+		_, err := c.service.Instances.Insert(c.project_id, c.region, inst).Do()
+		if err != nil {
+			fmt.Println(err)
+		}
+		fmt.Printf(".")
+	}
+}
 func (c Client) Run(project string, channel string, size string, num int, block bool, cloud_config string, image string) error {
 	prefix := "https://www.googleapis.com/compute/v1/projects/" + c.project_id
 	time := time.Now().Unix()
@@ -166,6 +180,14 @@ func (c Client) Run(project string, channel string, size string, num int, block 
 		image = img_src
 	}
 	var wg sync.WaitGroup
+	queue := make(chan *compute.Instance)
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			c.insertWorker(i, queue)
+		}()
+	}
 	for i := 0; i < num; i++ {
 		name := fmt.Sprintf("%s-%d-%d", project, time, i)
 		instance := &compute.Instance{
@@ -207,49 +229,90 @@ func (c Client) Run(project string, channel string, size string, num int, block 
 				},
 			},
 		}
-		wg.Add(1)
-		go func(inst *compute.Instance) {
-			defer wg.Done()
-			_, err := c.service.Instances.Insert(c.project_id, c.region, inst).Do()
+		queue <- instance
+	}
+	close(queue)
+	wg.Wait()
+	return nil
+}
+
+func (c Client) deleteWorker(id int, queue chan *compute.Instance) {
+	for {
+		inst, ok := <-queue
+		if !ok {
+			break
+		}
+		if inst.Status == "RUNNING" {
+			fmt.Printf(".")
+			_, err := c.service.Instances.Delete(c.project_id, c.region, inst.Name).Do()
 			if err != nil {
 				fmt.Println(err)
 			}
-		}(instance)
+		}
 	}
-	wg.Wait()
-	return nil
 }
 
 func (c Client) Terminate(project string) error {
+	var wg sync.WaitGroup
+	queue := make(chan *compute.Instance)
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			c.deleteWorker(i, queue)
+		}()
+	}
 	filter := fmt.Sprintf("name eq %s.*", project)
-	instances, err := c.service.Instances.List(c.project_id, c.region).Filter(filter).Do()
+	req := c.service.Instances.List(c.project_id, c.region).Filter(filter)
+	instances, err := req.Do()
 	if err != nil {
 		return err
 	}
-	var wg sync.WaitGroup
 	for _, instance := range instances.Items {
-		wg.Add(1)
-		go func(name string) {
-			defer wg.Done()
-			_, err := c.service.Instances.Delete(c.project_id, c.region, name).Do()
-			if err != nil {
-				fmt.Println(err)
-			}
-		}(instance.Name)
+		queue <- instance
 	}
+	for {
+		if instances.NextPageToken == "" {
+			break
+		}
+		req.PageToken(instances.NextPageToken)
+		instances, err = req.Do()
+		if err != nil {
+			return err
+		}
+		for _, instance := range instances.Items {
+			queue <- instance
+		}
+	}
+	close(queue)
 	wg.Wait()
 	return nil
 }
 
+func printInstances(instances *compute.InstanceList) {
+	for _, instance := range instances.Items {
+		fmt.Println(instance)
+	}
+}
 func (c Client) List(project string) error {
 	// TODO would be more ideal to filter on tags, but I could not find that
 	filter := fmt.Sprintf("name eq %s.*", project)
-	instances, err := c.service.Instances.List(c.project_id, c.region).Filter(filter).Do()
+	req := c.service.Instances.List(c.project_id, c.region).Filter(filter)
+	instances, err := req.Do()
 	if err != nil {
 		return err
 	}
-	for _, instance := range instances.Items {
-		fmt.Println(instance)
+	printInstances(instances)
+	for {
+		if instances.NextPageToken == "" {
+			break
+		}
+		req.PageToken(instances.NextPageToken)
+		instances, err = req.Do()
+		if err != nil {
+			return err
+		}
+		printInstances(instances)
 	}
 	return nil
 }
