@@ -18,6 +18,7 @@ import (
 
 const defaultRegion = "us-central1-a"
 const workers = 25
+const max_qps = 20
 
 type Client struct {
 	service    *compute.Service
@@ -171,7 +172,7 @@ func (c Client) insertWorker(id int, queue chan *compute.Instance) {
 }
 func (c Client) Run(project string, channel string, size string, num int, block bool, cloud_config string, image string) error {
 	prefix := "https://www.googleapis.com/compute/v1/projects/" + c.project_id
-	time := time.Now().Unix()
+	t := time.Now().Unix()
 	if image == "" {
 		img_src, err := getSrcImg(channel)
 		if err != nil {
@@ -180,7 +181,8 @@ func (c Client) Run(project string, channel string, size string, num int, block 
 		image = img_src
 	}
 	var wg sync.WaitGroup
-	queue := make(chan *compute.Instance)
+	queue := make(chan *compute.Instance, 20)
+	tick := time.Tick(time.Second)
 	for i := 0; i < workers; i++ {
 		wg.Add(1)
 		go func() {
@@ -189,7 +191,7 @@ func (c Client) Run(project string, channel string, size string, num int, block 
 		}()
 	}
 	for i := 0; i < num; i++ {
-		name := fmt.Sprintf("%s-%d-%d", project, time, i)
+		name := fmt.Sprintf("%s-%d-%d", project, t, i)
 		instance := &compute.Instance{
 			Name:        name,
 			Description: project,
@@ -230,6 +232,9 @@ func (c Client) Run(project string, channel string, size string, num int, block 
 			},
 		}
 		queue <- instance
+		if (i%20) == 0 && i > 0 {
+			<-tick
+		}
 	}
 	close(queue)
 	wg.Wait()
@@ -255,6 +260,7 @@ func (c Client) deleteWorker(id int, queue chan *compute.Instance) {
 func (c Client) Terminate(project string) error {
 	var wg sync.WaitGroup
 	queue := make(chan *compute.Instance)
+	tick := time.Tick(time.Second)
 	for i := 0; i < workers; i++ {
 		wg.Add(1)
 		go func() {
@@ -268,8 +274,11 @@ func (c Client) Terminate(project string) error {
 	if err != nil {
 		return err
 	}
-	for _, instance := range instances.Items {
+	for i, instance := range instances.Items {
 		queue <- instance
+		if (i%20) == 0 && i > 0 {
+			<-tick
+		}
 	}
 	for {
 		if instances.NextPageToken == "" {
@@ -280,8 +289,11 @@ func (c Client) Terminate(project string) error {
 		if err != nil {
 			return err
 		}
-		for _, instance := range instances.Items {
+		for i, instance := range instances.Items {
 			queue <- instance
+			if (i % 20) == 0 {
+				<-tick
+			}
 		}
 	}
 	close(queue)
